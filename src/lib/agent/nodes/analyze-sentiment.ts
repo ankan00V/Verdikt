@@ -58,6 +58,8 @@ export async function analyzeSentimentNode(
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
     temperature: 0.1,
+    maxTokens: 600,
+    timeout: 35000,
   });
 
   const structuredLlm = llm.withStructuredOutput(SentimentSchema, {
