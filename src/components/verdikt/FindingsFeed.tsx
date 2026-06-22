@@ -28,10 +28,11 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
   try {
     switch (nodeId) {
       case "resolve_ticker": {
-        if (!output.companyConfirmed) {
+        const data = output as any;
+        if (!data.companyConfirmed) {
           return <p className="text-[11px] text-red-400/80 leading-[1.5] mt-1">Could not resolve a public ticker.</p>;
         }
-        return <p className="text-[11px] text-emerald-400/80 leading-[1.5] font-mono mt-1">{output.ticker} confirmed</p>;
+        return <p className="text-[11px] text-emerald-400/80 leading-[1.5] font-mono mt-1">{String(data.ticker)} confirmed</p>;
       }
       
       case "fetch_financials": {
@@ -52,7 +53,8 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
       }
 
       case "fetch_news": {
-        const news = output.newsData?.results as any[];
+        const data = output as any;
+        const news = data.newsData?.results as any[] | undefined;
         if (!news || news.length === 0) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">No recent news found.</p>;
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2 list-disc pl-3 marker:text-white/20">
@@ -69,7 +71,8 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
       }
 
       case "fetch_web_research": {
-        const web = output.webData?.results as any[];
+        const data = output as any;
+        const web = data.webData?.results as any[] | undefined;
         if (!web || web.length === 0) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">No web research found.</p>;
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2 list-disc pl-3 marker:text-white/20">
