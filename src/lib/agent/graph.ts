@@ -62,7 +62,7 @@ export function buildGraph() {
     .addNode("gather_data", gatherDataNode)
     .addNode("analyze_fundamentals", analyzeFundamentalsNode)
     .addNode("analyze_sentiment", analyzeSentimentNode)
-    .addNode("analyze_competitive", analyzeCompetitiveNode)
+    .addNode("analyze_competitive_position", analyzeCompetitiveNode)
     .addNode("synthesize_decision", synthesizeDecisionNode)
 
     // -------------------------------------------------------------------------
@@ -85,8 +85,8 @@ export function buildGraph() {
     // Sequential analysis chain (each builds on accumulated state)
     .addEdge("gather_data", "analyze_fundamentals")
     .addEdge("analyze_fundamentals", "analyze_sentiment")
-    .addEdge("analyze_sentiment", "analyze_competitive")
-    .addEdge("analyze_competitive", "synthesize_decision")
+    .addEdge("analyze_sentiment", "analyze_competitive_position")
+    .addEdge("analyze_competitive_position", "synthesize_decision")
 
     // Terminal edge
     .addEdge("synthesize_decision", END);
@@ -104,6 +104,6 @@ export const NODE_LABELS: Record<string, string> = {
   gather_data: "Gathering data",
   analyze_fundamentals: "Analyzing fundamentals",
   analyze_sentiment: "Analyzing sentiment",
-  analyze_competitive: "Analyzing competitive position",
+  analyze_competitive_position: "Analyzing competitive position",
   synthesize_decision: "Synthesizing verdict",
 };

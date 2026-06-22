@@ -28,9 +28,7 @@ export async function fetchWebResearchNode(
   const sector = companyProfile?.sector ?? "";
 
   // Query targets business fundamentals rather than breaking news
-  const query =
-    `${companyName} ${ticker} business model competitive advantages market position ` +
-    `moat analysis investment thesis ${sector} industry trends 2024 2025`;
+  const query = `${companyName} ${ticker} competitive analysis business model ${sector} market 2025`;
 
   try {
     const tool = new TavilySearch({
@@ -46,14 +44,13 @@ export async function fetchWebResearchNode(
     const parsed =
       typeof rawResults === "string" ? JSON.parse(rawResults) : rawResults;
 
-    const results: SearchResult[] = Array.isArray(parsed)
-      ? parsed.map((r: Record<string, unknown>) => ({
-          title: (r.title as string) ?? "",
-          url: (r.url as string) ?? "",
-          content: (r.content as string) ?? "",
-          score: typeof r.score === "number" ? r.score : undefined,
-        }))
-      : [];
+    const resultsArray = Array.isArray(parsed) ? parsed : (parsed.results || []);
+    const results: SearchResult[] = resultsArray.map((r: Record<string, unknown>) => ({
+      title: (r.title as string) ?? "",
+      url: (r.url as string) ?? "",
+      content: (r.content as string) ?? "",
+      score: typeof r.score === "number" ? r.score : undefined,
+    }));
 
     return { webResearchResults: results };
   } catch (err) {

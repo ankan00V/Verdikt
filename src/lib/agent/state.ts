@@ -83,7 +83,7 @@ export interface FundamentalsOutput {
   valuationComment: string;
   overallScore: "strong" | "adequate" | "weak" | "unavailable";
   keyNumbers: string[];
-  dataLimitationNote?: string;
+  dataLimitationNote?: string | null;
 }
 
 export interface SentimentOutput {
@@ -112,7 +112,7 @@ export interface DecisionOutput {
   competitiveSummary: string;
   keyRisks: string[];
   keyStrengths: string[];
-  dataQualityNote?: string;
+  dataQualityNote?: string | null;
 }
 
 // ---------------------------------------------------------------------------

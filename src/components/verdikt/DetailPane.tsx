@@ -72,7 +72,206 @@ function VerdictStamp({
   );
 }
 
-/* ─── Generic output renderer ────────────────────────────────── */
+/* ─── Output renderers ───────────────────────────────────────── */
+function formatNumber(num: number | null | undefined): string {
+  if (num === null || num === undefined) return "N/A";
+  if (Math.abs(num) >= 1e9) {
+    return `$${(num / 1e9).toFixed(2)}B`;
+  }
+  if (Math.abs(num) >= 1e6) {
+    return `$${(num / 1e6).toFixed(2)}M`;
+  }
+  return `$${num.toFixed(2)}`;
+}
+
+function getHostname(urlStr: string) {
+  try {
+    return new URL(urlStr).hostname;
+  } catch {
+    return urlStr;
+  }
+}
+
+function Section({ title, content }: { title: string; content: any }) {
+  if (!content || (Array.isArray(content) && content.length === 0)) return null;
+  return (
+    <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 mb-4">
+      <h4 className="text-[10px] uppercase tracking-widest text-white/40 font-medium mb-2 font-mono">{title}</h4>
+      <div className="text-xs text-white/70 leading-[1.6]">{content}</div>
+    </div>
+  );
+}
+
+function renderFindingDetail(nodeId: string, output: Record<string, any>) {
+  switch (nodeId) {
+    case "resolve_ticker": {
+      const p = output.companyProfile;
+      const t = output.ticker;
+      return (
+        <div className="flex flex-col gap-4">
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-white/40 font-mono w-20">Ticker:</span>
+                <span className="text-sm font-semibold">{p?.ticker || t || "N/A"}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-white/40 font-mono w-20">Company:</span>
+                <span className="text-sm">{p?.name || output.companyName || "Resolved successfully"}</span>
+              </div>
+              <div className="flex items-center gap-4">
+                <span className="text-xs text-white/40 font-mono w-20">Exchange:</span>
+                <span className="text-sm">{p?.exchange || "Pending details"}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    case "fetch_financials": {
+      const p = output.companyProfile;
+      const inc = output.financials?.incomeStatements?.[0] || {};
+      const metrics = output.financials?.keyMetrics || {};
+      return (
+        <div className="flex flex-col gap-4">
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
+            <div className="flex flex-col gap-2 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Revenue (TTM):</span>
+                <span className="text-sm">{formatNumber(inc.revenue)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Net Income:</span>
+                <span className="text-sm">{formatNumber(inc.netIncome)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Gross Margin:</span>
+                <span className="text-sm">
+                  {inc.grossProfitRatio !== null && inc.grossProfitRatio !== undefined
+                    ? `${(inc.grossProfitRatio * 100).toFixed(1)}%`
+                    : "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Debt / Equity:</span>
+                <span className="text-sm">
+                  {metrics.debtToEquity !== null && metrics.debtToEquity !== undefined
+                    ? metrics.debtToEquity.toFixed(2)
+                    : "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Market Cap:</span>
+                <span className="text-sm">{formatNumber(p?.marketCap)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Sector:</span>
+                <span className="text-sm">{p?.sector || "N/A"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-white/40 font-mono">Exchange:</span>
+                <span className="text-sm">{p?.exchange || "N/A"}</span>
+              </div>
+            </div>
+            {p?.description && (
+              <p className="text-xs text-white/50 leading-relaxed border-t border-white/5 pt-4">
+                {p.description}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    }
+    case "fetch_news":
+    case "fetch_web_research": {
+      const results = output.newsResults || output.webResearchResults || [];
+      if (!results.length) return <p className="text-sm text-white/40 italic">No results found.</p>;
+      return (
+        <div className="flex flex-col gap-4">
+          {results.map((r: any, i: number) => (
+            <div key={i} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4 flex flex-col gap-2">
+              <h4 className="text-sm font-semibold text-white/90 leading-snug">{r.title}</h4>
+              <p className="text-[10px] font-mono text-emerald-400/80">
+                {getHostname(r.url)} {r.publishedDate ? `· ${new Date(r.publishedDate).toLocaleDateString()}` : ""}
+              </p>
+              <p className="text-xs text-white/60 leading-relaxed mt-1">
+                {r.content.length > 250 ? `${r.content.substring(0, 250)}...` : r.content}
+              </p>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    case "analyze_fundamentals": {
+      const f = output.fundamentalsAnalysis || {};
+      return (
+        <div className="flex flex-col">
+          <Section title="GROWTH" content={f.revenueGrowthAssessment} />
+          <Section title="MARGINS" content={f.marginQuality} />
+          <Section title="BALANCE SHEET" content={f.balanceSheetHealth} />
+          <Section title="VALUATION" content={f.valuationComment} />
+          <Section title="KEY RISKS" content={
+            <ul className="list-disc pl-4 space-y-1">
+              {(f.keyNumbers || []).map((n: string, i: number) => <li key={i}>{n}</li>)}
+            </ul>
+          } />
+        </div>
+      );
+    }
+    case "analyze_sentiment": {
+      const s = output.sentimentAnalysis || {};
+      return (
+        <div className="flex flex-col">
+          <Section title="OVERALL TONE" content={<span className="capitalize font-semibold">{s.overallTone || "Unknown"}</span>} />
+          <Section title="MOMENTUM" content={s.momentumSignal} />
+          <Section title="KEY POSITIVE SIGNALS" content={
+            <ul className="list-disc pl-4 space-y-1">
+              {(s.recentDevelopments || []).map((d: string, i: number) => <li key={i}>{d}</li>)}
+            </ul>
+          } />
+          <Section title="KEY RISK SIGNALS" content={
+            <ul className="list-disc pl-4 space-y-1">
+              {(s.controversies || []).map((c: string, i: number) => <li key={i}>{c}</li>)}
+            </ul>
+          } />
+        </div>
+      );
+    }
+    case "analyze_competitive_position": {
+      const c = output.competitiveAnalysis || {};
+      return (
+        <div className="flex flex-col">
+          <Section title="ECONOMIC MOAT" content={c.moatAssessment} />
+          <Section title="MARKET POSITION" content={c.marketPosition} />
+          <Section title="KEY COMPETITORS" content={
+            <ul className="list-disc pl-4 space-y-1">
+              {(c.keyCompetitors || []).map((comp: string, i: number) => <li key={i}>{comp}</li>)}
+            </ul>
+          } />
+          <Section title="COMPETITIVE RISKS" content={
+            <ul className="list-disc pl-4 space-y-1">
+              {(c.competitiveRisks || []).map((risk: string, i: number) => <li key={i}>{risk}</li>)}
+            </ul>
+          } />
+        </div>
+      );
+    }
+    case "gather_data":
+      return <p className="text-xs text-emerald-400/80 font-mono mt-4">Pipeline synchronization complete.</p>;
+    case "synthesize_decision":
+      return (
+        <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
+          <p className="text-sm text-white/80">
+            Verdict: <span className="font-bold">{output.decision?.verdict || "N/A"}</span> · Confidence: {output.decision?.confidence || 0}%
+          </p>
+          <p className="text-xs text-white/50 mt-2">See verdict pane for full reasoning.</p>
+        </div>
+      );
+    default:
+      return <OutputBlock output={output} />;
+  }
+}
+
 function OutputBlock({ output }: { output: Record<string, unknown> }) {
   return (
     <div className="flex flex-col gap-4">
@@ -112,10 +311,24 @@ export default function DetailPane({
 }: DetailPaneProps) {
   if (!selectedFinding && !isPipelineComplete) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-xs text-white/25">
-          Select a finding to see its full output
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 text-center h-full">
+        <div className="relative flex items-center justify-center w-16 h-16 mb-2">
+          {/* Outer rotating ring */}
+          <div className="absolute inset-0 rounded-full border-t-2 border-emerald-500/40 border-r-2 border-transparent animate-spin" style={{ animationDuration: '3s' }} />
+          {/* Inner rotating ring (reverse) */}
+          <div className="absolute inset-2 rounded-full border-b-2 border-emerald-400/30 border-l-2 border-transparent animate-spin" style={{ animationDuration: '2s', animationDirection: 'reverse' }} />
+          {/* Center pulse */}
+          <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
+        </div>
+        <p className="text-sm text-emerald-400/80 font-mono tracking-widest uppercase animate-pulse">
+          Verdikt is analyzing
         </p>
+        <div className="text-xs text-white/40 mt-2 max-w-[260px] leading-relaxed">
+          The AI is currently processing financial data, news, and market sentiment...
+          <div className="mt-4 text-white/25 italic">
+            Click any finding on the left to inspect its output while you wait.
+          </div>
+        </div>
       </div>
     );
   }
@@ -163,7 +376,7 @@ export default function DetailPane({
             </div>
             
             {selectedFinding.output ? (
-              <OutputBlock output={selectedFinding.output} />
+              renderFindingDetail(selectedFinding.nodeId, selectedFinding.output)
             ) : (
               <p className="text-xs text-white/40 italic">No structured output returned for this node.</p>
             )}

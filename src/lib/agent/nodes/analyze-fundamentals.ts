@@ -4,7 +4,7 @@
  * LLM node: analyzes the company's financial fundamentals.
  *
  * Uses ChatOpenAI pointed at NVIDIA NIM with .withStructuredOutput(FundamentalsSchema).
- * The method: "json_schema" option is required for NIM compatibility — some NIM
+ * The method: "jsonSchema" option is required for NIM compatibility — some NIM
  * endpoints do not support the "strict" tool-calling format.
  *
  * Critically: the prompt injects the actual financial data from state, and the
@@ -24,7 +24,7 @@ import { FundamentalsSchema } from "../schemas";
 function formatFinancialContext(state: AgentStateType): string {
   if (!state.financialsAvailable || !state.financials) {
     const errors = state.errors
-      .filter((e) => e.includes("financial") || e.includes("FMP"))
+      .filter((e) => e.includes("financial") || e.includes("Yahoo Finance"))
       .join("; ");
     return `FINANCIAL DATA STATUS: Unavailable. ${errors || "No specific error recorded."}`;
   }
@@ -86,7 +86,7 @@ export async function analyzeFundamentalsNode(
   }
 
   const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-405b-instruct",
+    model: "meta/llama-3.3-70b-instruct",
     apiKey: process.env.NVIDIA_NIM_API_KEY,
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
@@ -95,7 +95,7 @@ export async function analyzeFundamentalsNode(
   });
 
   const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
-    method: "json_schema",
+    method: "jsonSchema",
   });
 
   const financialContext = formatFinancialContext(state);

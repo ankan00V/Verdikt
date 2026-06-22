@@ -1,20 +1,17 @@
 /**
  * nodes/fetch-financials.ts
  *
- * Parallel node: fetches financial data from Financial Modeling Prep (FMP).
+ * Parallel node: fetches financial data using yahoo-finance2.
  *
- * Uses Promise.all to fire three FMP API calls concurrently:
- *   - Income statement (3 years annual)
- *   - Key metrics (latest annual)
- *   - Financial ratios (latest annual)
+ * Uses yahooFinance.quoteSummary to fetch:
+ *   - Income statement history (up to 4 years)
+ *   - Key statistics and financial data
+ *   - Company Profile
  *
- * Graceful degradation: if FMP returns empty data (private company, OTC, or
- * insufficient history), sets financialsAvailable = false. The downstream
- * analyze_fundamentals node checks this flag and adjusts its analysis.
+ * Graceful degradation: if yahoo-finance returns empty data, sets financialsAvailable = false.
+ * The downstream analyze_fundamentals node checks this flag and adjusts its analysis.
  *
  * This node runs in parallel with fetch_news and fetch_web_research.
- * It writes to ticker-specific fields (financials, financialsAvailable),
- * which are non-array fields with last-write-wins reducers — safe for parallel execution.
  */
 
 import {
@@ -23,91 +20,11 @@ import {
   IncomeStatement,
   KeyMetrics,
   FinancialRatios,
+  CompanyProfile,
 } from "../state";
+import YahooFinance from "yahoo-finance2";
 
-const FMP_BASE = "https://financialmodelingprep.com/api/v3";
-
-// ---------------------------------------------------------------------------
-// Individual fetchers
-// ---------------------------------------------------------------------------
-
-async function fetchIncomeStatements(
-  ticker: string,
-  apiKey: string
-): Promise<IncomeStatement[]> {
-  const url = `${FMP_BASE}/income-statement/${ticker}?period=annual&limit=3&apikey=${apiKey}`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-  if (!res.ok) return [];
-
-  const data = (await res.json()) as Array<Record<string, unknown>>;
-  if (!Array.isArray(data)) return [];
-
-  return data.map((d) => ({
-    date: (d.date as string) ?? "",
-    revenue: typeof d.revenue === "number" ? d.revenue : null,
-    grossProfit: typeof d.grossProfit === "number" ? d.grossProfit : null,
-    operatingIncome: typeof d.operatingIncome === "number" ? d.operatingIncome : null,
-    netIncome: typeof d.netIncome === "number" ? d.netIncome : null,
-    eps: typeof d.eps === "number" ? d.eps : null,
-    grossProfitRatio: typeof d.grossProfitRatio === "number" ? d.grossProfitRatio : null,
-    operatingIncomeRatio: typeof d.operatingIncomeRatio === "number" ? d.operatingIncomeRatio : null,
-    netIncomeRatio: typeof d.netIncomeRatio === "number" ? d.netIncomeRatio : null,
-  }));
-}
-
-async function fetchKeyMetrics(
-  ticker: string,
-  apiKey: string
-): Promise<KeyMetrics | null> {
-  const url = `${FMP_BASE}/key-metrics/${ticker}?period=annual&limit=1&apikey=${apiKey}`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-  if (!res.ok) return null;
-
-  const data = (await res.json()) as Array<Record<string, unknown>>;
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  const d = data[0];
-  return {
-    peRatio: typeof d.peRatio === "number" ? d.peRatio : null,
-    pbRatio: typeof d.pbRatio === "number" ? d.pbRatio : null,
-    evToEbitda: typeof d.evToEbitda === "number" ? d.evToEbitda : null,
-    debtToEquity: typeof d.debtToEquity === "number" ? d.debtToEquity : null,
-    currentRatio: typeof d.currentRatio === "number" ? d.currentRatio : null,
-    returnOnEquity: typeof d.returnOnEquity === "number" ? d.returnOnEquity : null,
-    returnOnAssets: typeof d.returnOnAssets === "number" ? d.returnOnAssets : null,
-    freeCashFlowPerShare:
-      typeof d.freeCashFlowPerShare === "number" ? d.freeCashFlowPerShare : null,
-    revenuePerShare: typeof d.revenuePerShare === "number" ? d.revenuePerShare : null,
-  };
-}
-
-async function fetchRatios(
-  ticker: string,
-  apiKey: string
-): Promise<FinancialRatios | null> {
-  const url = `${FMP_BASE}/ratios/${ticker}?period=annual&limit=1&apikey=${apiKey}`;
-  const res = await fetch(url, { next: { revalidate: 0 } });
-  if (!res.ok) return null;
-
-  const data = (await res.json()) as Array<Record<string, unknown>>;
-  if (!Array.isArray(data) || data.length === 0) return null;
-
-  const d = data[0];
-  return {
-    grossProfitMargin:
-      typeof d.grossProfitMargin === "number" ? d.grossProfitMargin : null,
-    operatingProfitMargin:
-      typeof d.operatingProfitMargin === "number" ? d.operatingProfitMargin : null,
-    netProfitMargin: typeof d.netProfitMargin === "number" ? d.netProfitMargin : null,
-    debtEquityRatio: typeof d.debtEquityRatio === "number" ? d.debtEquityRatio : null,
-    quickRatio: typeof d.quickRatio === "number" ? d.quickRatio : null,
-    dividendYield: typeof d.dividendYield === "number" ? d.dividendYield : null,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Main node function
-// ---------------------------------------------------------------------------
+const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 export async function fetchFinancialsNode(
   state: AgentStateType
@@ -122,32 +39,96 @@ export async function fetchFinancialsNode(
     };
   }
 
-  const apiKey = process.env.FMP_API_KEY;
-  if (!apiKey) {
-    return {
-      financialsAvailable: false,
-      errors: ["FMP_API_KEY is not configured — financial data unavailable"],
-    };
-  }
-
   try {
-    // Fire all three requests concurrently
-    const [incomeStatements, keyMetrics, ratios] = await Promise.all([
-      fetchIncomeStatements(ticker, apiKey),
-      fetchKeyMetrics(ticker, apiKey),
-      fetchRatios(ticker, apiKey),
-    ]);
+    const quote = await yahooFinance.quoteSummary(ticker, {
+      modules: [
+        "assetProfile",
+        "price",
+        "incomeStatementHistory",
+        "defaultKeyStatistics",
+        "financialData",
+        "summaryDetail",
+      ],
+    });
 
-    // Consider data available if we got at least one income statement
-    const financialsAvailable = incomeStatements.length > 0;
+    // 1. Map Company Profile
+    const p = quote.assetProfile;
+    const price = quote.price;
+    const companyProfile: CompanyProfile | null =
+      p || price
+        ? {
+            ticker: ticker,
+            name: price?.shortName || ticker,
+            description: p?.longBusinessSummary || "",
+            sector: p?.sector || "",
+            industry: p?.industry || "",
+            country: p?.country || "",
+            exchange: price?.exchangeName || "",
+            marketCap: price?.marketCap || null,
+            website: p?.website || "",
+            ceo: p?.companyOfficers?.[0]?.name || "",
+          }
+        : null;
+
+    // 2. Map Income Statements
+    const rawIncome = quote.incomeStatementHistory?.incomeStatementHistory || [];
+    const incomeStatements: IncomeStatement[] = rawIncome.map((d) => {
+      const rev = d.totalRevenue ?? null;
+      const gp = d.grossProfit ?? null;
+      const op = d.operatingIncome ?? null;
+      const ni = d.netIncome ?? null;
+      return {
+        date: d.endDate ? d.endDate.toISOString().split("T")[0] : "",
+        revenue: rev,
+        grossProfit: gp,
+        operatingIncome: op,
+        netIncome: ni,
+        eps: null, // yahooFinance2 puts this elsewhere, omitted here
+        grossProfitRatio: gp && rev ? gp / rev : null,
+        operatingIncomeRatio: op && rev ? op / rev : null,
+        netIncomeRatio: ni && rev ? ni / rev : null,
+      };
+    });
+
+    // 3. Map Key Metrics
+    const fd = (quote.financialData || {}) as any;
+    const ks = (quote.defaultKeyStatistics || {}) as any;
+    const keyMetrics: KeyMetrics = {
+      peRatio: ks.forwardPE ?? null,
+      pbRatio: ks.priceToBook ?? ks.pbRatio ?? null,
+      evToEbitda: ks.enterpriseToEbitda ?? null,
+      debtToEquity: fd.debtToEquity ?? null,
+      currentRatio: fd.currentRatio ?? null,
+      returnOnEquity: fd.returnOnEquity ?? null,
+      returnOnAssets: fd.returnOnAssets ?? null,
+      freeCashFlowPerShare:
+        fd.freeCashflow && ks.sharesOutstanding
+          ? fd.freeCashflow / ks.sharesOutstanding
+          : null,
+      revenuePerShare: fd.revenuePerShare ?? null,
+    };
+
+    // 4. Map Ratios
+    const sd = (quote.summaryDetail || {}) as any;
+    const ratios: FinancialRatios = {
+      grossProfitMargin: fd.grossMargins ?? null,
+      operatingProfitMargin: fd.operatingMargins ?? null,
+      netProfitMargin: fd.profitMargins ?? null,
+      debtEquityRatio: fd.debtToEquity ?? null,
+      quickRatio: fd.quickRatio ?? null,
+      dividendYield: sd.dividendYield ?? null,
+    };
+
+    const financialsAvailable = incomeStatements.length > 0 || Object.keys(fd).length > 0;
 
     if (!financialsAvailable) {
       return {
+        companyProfile: companyProfile || state.companyProfile,
         financials: null,
         financialsAvailable: false,
         errors: [
-          `No financial data found for ${ticker} on FMP. ` +
-            "This may indicate a non-US company, a recently listed company, or insufficient data coverage.",
+          `No financial data found for ${ticker} via Yahoo Finance. ` +
+            "This may indicate an inactive or delisted company, or missing fundamental coverage.",
         ],
       };
     }
@@ -159,6 +140,7 @@ export async function fetchFinancialsNode(
     };
 
     return {
+      companyProfile: companyProfile || state.companyProfile,
       financials,
       financialsAvailable: true,
     };
@@ -168,7 +150,9 @@ export async function fetchFinancialsNode(
       financials: null,
       financialsAvailable: false,
       errors: [
-        `Failed to fetch financial data for ${ticker}: ${err instanceof Error ? err.message : String(err)}`,
+        `Failed to fetch financial data for ${ticker}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
       ],
     };
   }

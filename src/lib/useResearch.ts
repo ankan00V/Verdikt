@@ -58,7 +58,7 @@ export function useResearch() {
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ companyName: company }),
+        body: JSON.stringify({ company }),
         signal: abortControllerRef.current.signal,
       });
 
@@ -84,60 +84,84 @@ export function useResearch() {
             try {
               const parsed = JSON.parse(dataStr);
               
-              if (parsed.done) {
+              if (parsed.type === "done" || parsed.done) {
                 setState((prev) => prev ? { ...prev, status: "complete" } : prev);
                 break;
               }
 
+              if (parsed.type === "error") {
+                console.error("Server sent error:", parsed.message);
+                setState((prev) => prev ? { ...prev, status: "error" } : prev);
+                break;
+              }
+
               const nodeName = parsed.node as NodeName;
-              const outputData = parsed.data;
               const ts = new Date().toISOString();
 
-              const finding: FindingEntry = {
-                nodeId: nodeName,
-                timestamp: ts,
-                summary: NODE_SUMMARIES[nodeName] || `Completed ${nodeName}`,
-                output: outputData,
-              };
-
-              setState((prev) => {
-                if (!prev) return prev;
-                
-                let synthVerdict = prev.verdict;
-                let ticker = prev.ticker;
-                
-                if (nodeName === "resolve_ticker" && outputData.ticker) {
-                  ticker = outputData.ticker;
-                }
-
-                if (nodeName === "synthesize_decision" && outputData.finalDecision) {
-                  const fd = outputData.finalDecision;
-                  synthVerdict = {
-                    decision: fd.verdict as any,
-                    confidence: fd.confidenceScore,
-                    reasoning: fd.summary,
-                    keyFactors: fd.reasoningBreakdown 
-                      ? Object.entries(fd.reasoningBreakdown).map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`)
-                      : [],
+              if (parsed.type === "node_start") {
+                setState((prev) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    nodes: prev.nodes.map((n) =>
+                      n.name === nodeName ? { ...n, status: "in-progress" } : n
+                    ),
                   };
-                }
+                });
+                setSelectedFindingId(nodeName);
+              } else if (parsed.type === "node_complete") {
+                const outputData = parsed.data || {};
 
-                const nextNodeName = NODES_IN_ORDER[NODES_IN_ORDER.indexOf(nodeName) + 1];
-
-                return {
-                  ...prev,
-                  ticker,
-                  verdict: synthVerdict,
-                  nodes: prev.nodes.map((n) => {
-                    if (n.name === nodeName) return { ...n, status: "complete", output: outputData, completedAt: ts };
-                    if (n.name === nextNodeName) return { ...n, status: "in-progress" };
-                    return n;
-                  }),
-                  findings: [...prev.findings, finding],
+                const finding: FindingEntry = {
+                  nodeId: nodeName,
+                  timestamp: ts,
+                  summary: NODE_SUMMARIES[nodeName] || `Completed ${nodeName}`,
+                  output: outputData,
                 };
-              });
 
-              setSelectedFindingId(nodeName);
+                setState((prev) => {
+                  if (!prev) return prev;
+                  
+                  let synthVerdict = prev.verdict;
+                  let ticker = prev.ticker;
+                  
+                  if (nodeName === "resolve_ticker" && outputData.ticker) {
+                    ticker = outputData.ticker;
+                  }
+
+                  if (nodeName === "synthesize_decision" && outputData.decision) {
+                    const d = outputData.decision;
+                    synthVerdict = {
+                      decision: d.verdict as any,
+                      confidence: d.confidence / 100,
+                      reasoning: d.oneLineRationale,
+                      keyFactors: [
+                        ...(d.keyStrengths || []).map((s: string) => `Strength: ${s}`),
+                        ...(d.keyRisks || []).map((r: string) => `Risk: ${r}`),
+                      ],
+                    };
+                  }
+
+                  let newFindings = [...prev.findings];
+                  const existingIndex = newFindings.findIndex((f) => f.nodeId === nodeName);
+                  if (existingIndex >= 0) {
+                    newFindings[existingIndex] = finding;
+                  } else {
+                    newFindings.push(finding);
+                  }
+
+                  return {
+                    ...prev,
+                    ticker,
+                    verdict: synthVerdict,
+                    nodes: prev.nodes.map((n) => {
+                      if (n.name === nodeName) return { ...n, status: "complete", output: outputData, completedAt: ts };
+                      return n;
+                    }),
+                    findings: newFindings,
+                  };
+                });
+              }
             } catch (e) {
               console.error("Failed to parse SSE JSON", dataStr, e);
             }

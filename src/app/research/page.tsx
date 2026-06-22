@@ -145,14 +145,15 @@ export default function ResearchPage() {
             </div>
 
             {/* 3-pane panel */}
-            <div className="flex-1 overflow-hidden rounded-2xl border border-white/10 liquid-glass grid grid-cols-[1fr_1.4fr_1.6fr]">
+            {/* 3-pane panel */}
+            <div className="flex-1 overflow-y-auto md:overflow-hidden rounded-2xl border border-white/10 liquid-glass grid grid-cols-1 md:grid-cols-[1fr_2fr] lg:grid-cols-[1fr_1.4fr_1.6fr]">
               {/* Left — node tracker */}
-              <div className="border-r border-white/[0.06] overflow-hidden flex flex-col">
+              <div className="md:row-span-2 lg:row-span-1 border-b md:border-b-0 md:border-r border-white/[0.06] overflow-hidden flex flex-col min-h-[250px] md:min-h-0">
                 <NodeTracker nodes={state.nodes} />
               </div>
 
               {/* Middle — findings feed */}
-              <div className="border-r border-white/[0.06] overflow-hidden flex flex-col">
+              <div className="border-b lg:border-b-0 lg:border-r border-white/[0.06] overflow-hidden flex flex-col min-h-[350px] md:min-h-0">
                 <FindingsFeed
                   findings={state.findings}
                   selectedId={selectedFindingId}
@@ -161,7 +162,7 @@ export default function ResearchPage() {
               </div>
 
               {/* Right — detail / verdict */}
-              <div className="overflow-hidden flex flex-col">
+              <div className="overflow-hidden flex flex-col min-h-[400px] md:min-h-0">
                 <DetailPane
                   selectedFinding={selectedFinding}
                   verdict={state.verdict}

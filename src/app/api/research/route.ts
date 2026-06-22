@@ -34,7 +34,7 @@ import { NextRequest } from "next/server";
 import { buildGraph, NODE_LABELS } from "@/lib/agent/graph";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 300; // 5 minutes — Vercel Hobby tier maximum
+export const maxDuration = 60; // 60 seconds — Vercel Hobby plan maximum for serverless functions
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -75,7 +75,6 @@ export async function POST(req: NextRequest): Promise<Response> {
   const missingEnvVars: string[] = [];
   if (!process.env.NVIDIA_NIM_API_KEY) missingEnvVars.push("NVIDIA_NIM_API_KEY");
   if (!process.env.TAVILY_API_KEY) missingEnvVars.push("TAVILY_API_KEY");
-  if (!process.env.FMP_API_KEY) missingEnvVars.push("FMP_API_KEY");
 
   if (missingEnvVars.length > 0) {
     return new Response(

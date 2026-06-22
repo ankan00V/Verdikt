@@ -24,8 +24,8 @@ export async function fetchNewsNode(
   }
 
   // Build a targeted query: use both company name and ticker for precision
-  const companyName = companyProfile?.name ?? ticker;
-  const query = `${companyName} ${ticker} latest news earnings analyst investment`;
+  const companyName = companyProfile?.name ?? state.companyName ?? ticker;
+  const query = `${companyName} ${ticker} stock news earnings 2025 2026`;
 
   try {
     const tool = new TavilySearch({
@@ -44,18 +44,26 @@ export async function fetchNewsNode(
     const parsed =
       typeof rawResults === "string" ? JSON.parse(rawResults) : rawResults;
 
-    const results: SearchResult[] = Array.isArray(parsed)
-      ? parsed.map((r: Record<string, unknown>) => ({
-          title: (r.title as string) ?? "",
-          url: (r.url as string) ?? "",
-          content: (r.content as string) ?? "",
-          score: typeof r.score === "number" ? r.score : undefined,
-          publishedDate:
-            typeof r.published_date === "string" ? r.published_date : undefined,
-        }))
-      : [];
+    const resultsArray = Array.isArray(parsed) ? parsed : (parsed.results || []);
+    const results: SearchResult[] = resultsArray.map((r: Record<string, unknown>) => ({
+      title: (r.title as string) ?? "",
+      url: (r.url as string) ?? "",
+      content: (r.content as string) ?? "",
+      score: typeof r.score === "number" ? r.score : undefined,
+      publishedDate:
+        typeof r.published_date === "string" ? r.published_date : undefined,
+    }));
 
-    return { newsResults: results };
+    // Post-filter to remove noise: article must mention ticker or company name
+    const companyFirstWord = companyName.split(" ")[0].toLowerCase();
+    const searchTarget = ticker.toLowerCase();
+    
+    const filteredResults = results.filter(r => {
+      const text = `${r.title} ${r.content}`.toLowerCase();
+      return text.includes(searchTarget) || text.includes(companyFirstWord);
+    });
+
+    return { newsResults: filteredResults };
   } catch (err) {
     console.error("[fetch_news] Error:", err);
     return {

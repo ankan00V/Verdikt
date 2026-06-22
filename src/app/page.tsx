@@ -10,10 +10,17 @@ export default function LandingPage() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#0B0E11] text-white flex flex-col font-sans">
       {/* Background Video */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-        <video autoPlay loop muted playsInline
+      <div className="fixed inset-0 z-0 pointer-events-none bg-[#0B0E11]">
+        <video 
+          autoPlay 
+          loop 
+          muted 
+          playsInline
+          preload="auto"
+          ref={(el) => { if (el) el.play().catch(() => {}); }}
           className="w-full h-full object-cover pointer-events-none"
-          src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260508_064122_c4750c0e-7476-4b44-94a2-a85a65c63bf2.mp4" />
+          src="/bg-video.mp4#t=0.001" 
+        />
         <div className="absolute inset-0 bg-[#0B0E11]/60" /> {/* Dark overlay to ensure text readability */}
       </div>
 
@@ -28,7 +35,7 @@ export default function LandingPage() {
           {/* Links */}
           <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 items-center gap-8">
             <a href="#how-it-works" className="text-[13px] font-semibold tracking-wide text-white/50 hover:text-white transition-colors">How it works</a>
-            <a href="#pipeline" className="text-[13px] font-semibold tracking-wide text-white/50 hover:text-white transition-colors">Architecture</a>
+            <a href="#how-it-works" className="text-[13px] font-semibold tracking-wide text-white/50 hover:text-white transition-colors">Architecture</a>
             <a href="#examples" className="text-[13px] font-semibold tracking-wide text-white/50 hover:text-white transition-colors">Example runs</a>
           </div>
 

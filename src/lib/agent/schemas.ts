@@ -58,7 +58,7 @@ export const FundamentalsSchema = z.object({
     ),
   dataLimitationNote: z
     .string()
-    .optional()
+    .nullable().optional()
     .describe(
       "If financial data was unavailable or incomplete, describe specifically what is missing " +
         "and how it limits this analysis. Omit if data was fully available."
@@ -226,9 +226,9 @@ export const DecisionSchema = z.object({
     ),
   dataQualityNote: z
     .string()
-    .optional()
+    .nullable().optional()
     .describe(
-      "If any critical data was unavailable (e.g. no FMP financials for this company), " +
+      "If any critical data was unavailable (e.g. no financial data for this company), " +
         "note how that affects confidence in this verdict. Omit if data was complete."
     ),
 });

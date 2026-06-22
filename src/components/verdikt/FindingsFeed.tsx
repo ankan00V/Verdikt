@@ -29,18 +29,18 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
     switch (nodeId) {
       case "resolve_ticker": {
         const data = output as any;
-        if (!data.companyConfirmed) {
+        if (!data.ticker) {
           return <p className="text-[11px] text-red-400/80 leading-[1.5] mt-1">Could not resolve a public ticker.</p>;
         }
         return <p className="text-[11px] text-emerald-400/80 leading-[1.5] font-mono mt-1">{String(data.ticker)} confirmed</p>;
       }
       
       case "fetch_financials": {
-        const data = output.financialData as any;
-        if (!data || !data.incomeStatement || data.incomeStatement.length === 0) {
+        const data = output.financials as any;
+        if (!data || !data.incomeStatements || data.incomeStatements.length === 0) {
           return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">No financial data found.</p>;
         }
-        const recent = data.incomeStatement[0];
+        const recent = data.incomeStatements[0];
         const metrics = data.keyMetrics || {};
         return (
           <ul className="text-[11px] text-white/60 space-y-0.5 mt-2">
@@ -54,12 +54,15 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
 
       case "fetch_news": {
         const data = output as any;
-        const news = data.newsData?.results as any[] | undefined;
+        const news = data.newsResults as any[] | undefined;
         if (!news || news.length === 0) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">No recent news found.</p>;
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2 list-disc pl-3 marker:text-white/20">
             {news.slice(0, 3).map((n, i) => {
-              const domain = n.url ? new URL(n.url).hostname.replace('www.', '') : 'News';
+              let domain = 'News';
+              try {
+                if (n.url) domain = new URL(n.url).hostname.replace('www.', '');
+              } catch(e) {}
               return (
                 <li key={i} className="line-clamp-2 leading-[1.4]">
                   {n.title} <span className="text-white/30">— {domain}</span>
@@ -72,7 +75,7 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
 
       case "fetch_web_research": {
         const data = output as any;
-        const web = data.webData?.results as any[] | undefined;
+        const web = data.webResearchResults as any[] | undefined;
         if (!web || web.length === 0) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">No web research found.</p>;
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2 list-disc pl-3 marker:text-white/20">
@@ -86,11 +89,24 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
       case "analyze_fundamentals": {
         const fund = output.fundamentalsAnalysis as any;
         if (!fund || fund.error) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">{fund?.error || "Analysis failed"}</p>;
+        
+        const growth = fund.revenueGrowthAssessment;
+        const margins = fund.marginQuality;
+        
+        if (!growth && !margins) {
+          return (
+            <ul className="text-[11px] text-white/60 space-y-1 mt-2">
+              <li className="line-clamp-2"><span className="text-white/40">Data limited:</span> see balance sheet analysis</li>
+              {fund.balanceSheetHealth && <li className="line-clamp-2"><span className="text-white/40">Balance Sheet:</span> {fund.balanceSheetHealth}</li>}
+            </ul>
+          );
+        }
+        
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2">
-            <li className="line-clamp-2"><span className="text-white/40">Growth:</span> {fund.growth}</li>
-            <li className="line-clamp-2"><span className="text-white/40">Margins:</span> {fund.margins}</li>
-            <li className="line-clamp-2"><span className="text-white/40">Balance Sheet:</span> {fund.balanceSheetHealth}</li>
+            {growth && <li className="line-clamp-2"><span className="text-white/40">Growth:</span> {growth}</li>}
+            {margins && <li className="line-clamp-2"><span className="text-white/40">Margins:</span> {margins}</li>}
+            {fund.balanceSheetHealth && <li className="line-clamp-2"><span className="text-white/40">Balance Sheet:</span> {fund.balanceSheetHealth}</li>}
           </ul>
         );
       }
@@ -100,8 +116,8 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
         if (!sent || sent.error) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">Sentiment analysis unavailable.</p>;
         return (
           <ul className="text-[11px] text-white/60 space-y-0.5 mt-2">
-            <li><span className="text-white/40">Tone:</span> <span className="text-emerald-400/80">{sent.newsTone}</span></li>
-            <li><span className="text-white/40">Momentum:</span> {sent.momentum}</li>
+            <li><span className="text-white/40">Tone:</span> <span className="text-emerald-400/80">{sent.overallTone}</span></li>
+            <li><span className="text-white/40">Momentum:</span> {sent.momentumSignal}</li>
             {sent.controversies?.length > 0 && (
               <li className="text-red-400/70 line-clamp-1 mt-1"><span className="text-red-400/40">Risk:</span> {sent.controversies[0]}</li>
             )}
@@ -115,7 +131,7 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
         return (
           <ul className="text-[11px] text-white/60 space-y-1 mt-2">
             <li className="line-clamp-2"><span className="text-white/40">Position:</span> {comp.marketPosition}</li>
-            <li><span className="text-white/40">Moat:</span> {comp.economicMoat}</li>
+            <li><span className="text-white/40">Moat:</span> {comp.moatScore || comp.moatAssessment}</li>
             <li className="line-clamp-1"><span className="text-white/40">Competitors:</span> {comp.keyCompetitors?.join(", ")}</li>
           </ul>
         );
@@ -173,10 +189,12 @@ export default function FindingsFeed({
         {findings.map((finding) => {
           const isSelected = selectedId === finding.nodeId;
           return (
-            <button
-              key={finding.nodeId}
+            <div
+              key={`${finding.nodeId}-${finding.timestamp}`}
               onClick={() => onSelect(finding.nodeId)}
-              className={`w-full text-left px-4 py-3 transition-colors hover:bg-white/[0.03] ${
+              role="button"
+              tabIndex={0}
+              className={`w-full text-left px-4 py-3 transition-colors hover:bg-white/[0.03] cursor-pointer overflow-hidden ${
                 isSelected ? "bg-white/[0.05] border-l-[2px] border-white/20" : "border-l-[2px] border-transparent"
               }`}
             >
@@ -193,8 +211,10 @@ export default function FindingsFeed({
                   })}
                 </span>
               </div>
-              <FindingContent finding={finding} />
-            </button>
+              <div className="overflow-hidden">
+                <FindingContent finding={finding} />
+              </div>
+            </div>
           );
         })}
       </div>

@@ -52,7 +52,7 @@ export async function analyzeSentimentNode(
   }
 
   const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-405b-instruct",
+    model: "meta/llama-3.3-70b-instruct",
     apiKey: process.env.NVIDIA_NIM_API_KEY,
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
@@ -61,7 +61,7 @@ export async function analyzeSentimentNode(
   });
 
   const structuredLlm = llm.withStructuredOutput(SentimentSchema, {
-    method: "json_schema",
+    method: "jsonSchema",
   });
 
   const newsContext = formatNewsContext(state);
