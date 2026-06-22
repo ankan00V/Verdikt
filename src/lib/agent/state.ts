@@ -56,6 +56,7 @@ export interface KeyMetrics {
   returnOnAssets: number | null;
   freeCashFlowPerShare: number | null;
   revenuePerShare: number | null;
+  revenueGrowthYoY: number | null;
 }
 
 export interface FinancialRatios {

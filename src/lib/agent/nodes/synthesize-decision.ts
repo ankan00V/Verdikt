@@ -68,7 +68,7 @@ export async function synthesizeDecisionNode(
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
-    temperature: 0.2, // Slightly higher temp for synthesis — still deterministic enough
+    temperature: 0.0, // Strictly deterministic
     maxTokens: 800,
     timeout: 50000,
   });

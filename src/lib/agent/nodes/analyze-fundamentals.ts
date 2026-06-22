@@ -63,7 +63,8 @@ function formatFinancialContext(state: AgentStateType): string {
       `D/E=${keyMetrics.debtToEquity?.toFixed(2) ?? "N/A"}, ` +
       `ROE=${formatPct(keyMetrics.returnOnEquity)}, ` +
       `ROA=${formatPct(keyMetrics.returnOnAssets)}, ` +
-      `FCF/share=${keyMetrics.freeCashFlowPerShare !== null ? `$${keyMetrics.freeCashFlowPerShare.toFixed(2)}` : "N/A"}`
+      `FCF/share=${keyMetrics.freeCashFlowPerShare !== null ? `$${keyMetrics.freeCashFlowPerShare.toFixed(2)}` : "N/A"}, ` +
+      `RevenueGrowthYoY=${formatPct(keyMetrics.revenueGrowthYoY)}`
     : "Key metrics: Not available";
 
   return (
@@ -92,7 +93,7 @@ export async function analyzeFundamentalsNode(
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
-    temperature: 0.1,
+    temperature: 0.0,
     maxTokens: 600,
     timeout: 35000,
   });
@@ -106,8 +107,9 @@ export async function analyzeFundamentalsNode(
   const systemPrompt =
     `You are a senior equity research analyst. Your task is to analyze the financial fundamentals ` +
     `of a company and produce a structured assessment. ` +
-    `Base your analysis ONLY on the data provided — do not introduce external knowledge about this company's financials. ` +
-    `If data fields show N/A, acknowledge the gap rather than inventing numbers.`;
+    `Base your analysis ONLY on the data provided. DO NOT HALLUCINATE OR CALCULATE NUMBERS. ` +
+    `Use only the explicitly provided percentages (e.g. RevenueGrowthYoY, margins). ` +
+    `If data fields show N/A or are missing, explicitly state 'Unavailable' rather than inventing or estimating numbers.`;
 
   const userPrompt =
     `Analyze the financial fundamentals for ${state.ticker} based on the data below.\n\n` +

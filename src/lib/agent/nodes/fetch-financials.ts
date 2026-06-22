@@ -93,6 +93,16 @@ export async function fetchFinancialsNode(
     // 3. Map Key Metrics
     const fd = (quote.financialData || {}) as any;
     const ks = (quote.defaultKeyStatistics || {}) as any;
+    // Calculate YoY Revenue Growth
+    let revenueGrowthYoY = null;
+    if (incomeStatements.length >= 2) {
+      const currentRev = incomeStatements[0].revenue;
+      const prevRev = incomeStatements[1].revenue;
+      if (currentRev !== null && prevRev !== null && prevRev > 0) {
+        revenueGrowthYoY = (currentRev - prevRev) / prevRev;
+      }
+    }
+
     const keyMetrics: KeyMetrics = {
       peRatio: ks.forwardPE ?? null,
       pbRatio: ks.priceToBook ?? ks.pbRatio ?? null,
@@ -106,6 +116,7 @@ export async function fetchFinancialsNode(
           ? fd.freeCashflow / ks.sharesOutstanding
           : null,
       revenuePerShare: fd.revenuePerShare ?? null,
+      revenueGrowthYoY: revenueGrowthYoY,
     };
 
     // 4. Map Ratios

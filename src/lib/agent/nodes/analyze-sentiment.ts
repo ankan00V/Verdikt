@@ -57,7 +57,7 @@ export async function analyzeSentimentNode(
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
-    temperature: 0.1,
+    temperature: 0.0,
     maxTokens: 600,
     timeout: 35000,
   });
