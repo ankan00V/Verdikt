@@ -31,14 +31,14 @@ function VerdictStamp({
         <div className="mt-2 flex items-center gap-2">
           <span className="text-xs font-mono text-white/40">confidence</span>
           <span className="text-xs font-mono font-semibold" style={{ color }}>
-            {verdict.confidence}%
+            {Math.round(verdict.confidence * 100)}%
           </span>
         </div>
         {/* Confidence bar */}
         <div className="mt-2 w-full h-1 rounded-full bg-white/10 overflow-hidden">
           <div
             className="h-full rounded-full"
-            style={{ width: `${verdict.confidence}%`, background: color }}
+            style={{ width: `${Math.round(verdict.confidence * 100)}%`, background: color }}
           />
         </div>
       </div>
@@ -104,6 +104,10 @@ export default function DetailPane({
     );
   }
 
+  // If the user selected the synthesize_decision node and we already have a verdict, we don't need to show the raw JSON
+  const isSelectedSynth = selectedFinding?.nodeId === "synthesize_decision";
+  const shouldShowFindingRaw = selectedFinding && (!isPipelineComplete || !isSelectedSynth);
+
   return (
     <div className="flex flex-col h-full">
       <div className="px-4 py-3 border-b border-white/[0.06]">
@@ -117,8 +121,8 @@ export default function DetailPane({
         {isPipelineComplete && verdict && <VerdictStamp verdict={verdict} />}
 
         {/* Show selected finding detail */}
-        {selectedFinding && (
-          <div>
+        {shouldShowFindingRaw && (
+          <div className={isPipelineComplete && verdict ? "mt-8 pt-8 border-t border-white/[0.06]" : ""}>
             <p className="text-xs font-semibold text-white mb-3 font-mono">
               {selectedFinding.nodeId}
             </p>
