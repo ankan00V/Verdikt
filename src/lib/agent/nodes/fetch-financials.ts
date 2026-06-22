@@ -72,11 +72,20 @@ export async function fetchFinancialsNode(
 
     // 2. Map Income Statements
     const rawIncome = quote.incomeStatementHistory?.incomeStatementHistory || [];
-    const incomeStatements: IncomeStatement[] = rawIncome.map((d) => {
+    const fd = (quote.financialData || {}) as any;
+    
+    const incomeStatements: IncomeStatement[] = rawIncome.map((d, i) => {
       const rev = d.totalRevenue ?? null;
       const gp = d.grossProfit ?? null;
       const op = d.operatingIncome ?? null;
       const ni = d.netIncome ?? null;
+      
+      // yahoo-finance2 incomeStatementHistory often returns null or 0 for margins recently.
+      // We fallback to financialData for the most recent year (i === 0).
+      const calcGpRatio = gp && rev ? gp / rev : null;
+      const calcOpRatio = op && rev ? op / rev : null;
+      const calcNiRatio = ni && rev ? ni / rev : null;
+
       return {
         date: d.endDate ? d.endDate.toISOString().split("T")[0] : "",
         revenue: rev,
@@ -84,14 +93,13 @@ export async function fetchFinancialsNode(
         operatingIncome: op,
         netIncome: ni,
         eps: null, // yahooFinance2 puts this elsewhere, omitted here
-        grossProfitRatio: gp && rev ? gp / rev : null,
-        operatingIncomeRatio: op && rev ? op / rev : null,
-        netIncomeRatio: ni && rev ? ni / rev : null,
+        grossProfitRatio: calcGpRatio || (i === 0 ? fd.grossMargins ?? null : null),
+        operatingIncomeRatio: calcOpRatio || (i === 0 ? fd.operatingMargins ?? null : null),
+        netIncomeRatio: calcNiRatio || (i === 0 ? fd.profitMargins ?? null : null),
       };
     });
 
     // 3. Map Key Metrics
-    const fd = (quote.financialData || {}) as any;
     const ks = (quote.defaultKeyStatistics || {}) as any;
     // Calculate YoY Revenue Growth
     let revenueGrowthYoY = null;
