@@ -122,16 +122,17 @@ export async function analyzeFundamentalsNode(
     console.error("[analyze_fundamentals] Error:", err);
     // Return a degraded output rather than crashing the graph
     return {
+      financialsAvailable: false,
       fundamentalsAnalysis: {
         available: false,
         flag: "ERROR",
-        revenueGrowthAssessment: "Analysis failed due to a technical error.",
-        marginQuality: "Unavailable.",
-        balanceSheetHealth: "Unavailable.",
-        valuationComment: "Unavailable.",
+        revenueGrowthAssessment: "Fundamental data analysis could not be completed for this company.",
+        marginQuality: "Data analysis unavailable.",
+        balanceSheetHealth: "Data analysis unavailable.",
+        valuationComment: "Data analysis unavailable.",
         overallScore: "unavailable",
         keyNumbers: [],
-        dataLimitationNote: `LLM analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+        dataLimitationNote: "Insufficient data for fundamental analysis.",
       },
       errors: [`Fundamentals analysis error: ${err instanceof Error ? err.message : String(err)}`],
     };
