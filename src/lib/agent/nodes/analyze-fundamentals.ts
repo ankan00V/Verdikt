@@ -45,6 +45,7 @@ function formatFinancialContext(state: AgentStateType): string {
     n === null ? "N/A" : `${(n * 100).toFixed(1)}%`;
 
   const incomeLines = incomeStatements
+    .slice(0, 2)
     .map(
       (stmt) =>
         `  ${stmt.date}: Revenue=${formatNum(stmt.revenue, "$")}, ` +
@@ -92,6 +93,7 @@ export async function analyzeFundamentalsNode(
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
     temperature: 0.1,
+    timeout: 55000,
   });
 
   const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
