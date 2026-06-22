@@ -123,6 +123,8 @@ export async function analyzeFundamentalsNode(
     // Return a degraded output rather than crashing the graph
     return {
       fundamentalsAnalysis: {
+        available: false,
+        flag: "ERROR",
         revenueGrowthAssessment: "Analysis failed due to a technical error.",
         marginQuality: "Unavailable.",
         balanceSheetHealth: "Unavailable.",
