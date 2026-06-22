@@ -166,6 +166,7 @@ export default function ResearchPage() {
                   selectedFinding={selectedFinding}
                   verdict={state.verdict}
                   isPipelineComplete={isPipelineComplete}
+                  onClearSelection={() => setSelectedFindingId(null)}
                 />
               </div>
             </div>
