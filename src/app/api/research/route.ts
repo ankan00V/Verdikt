@@ -17,6 +17,9 @@ export async function POST(req: NextRequest) {
     const stream = new ReadableStream({
       async start(controller) {
         try {
+          // Send a padding comment to force Next.js to flush the buffer immediately
+          controller.enqueue(encoder.encode(`: ${" ".repeat(2048)}\n\n`));
+
           const config = { configurable: { thread_id: Date.now().toString() } };
           const initialState = { companyName };
 
@@ -55,6 +58,7 @@ export async function POST(req: NextRequest) {
         "Cache-Control": "no-cache, no-transform",
         "Connection": "keep-alive",
         "X-Accel-Buffering": "no",
+        "Content-Encoding": "none",
       },
     });
 
