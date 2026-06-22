@@ -1,0 +1,137 @@
+/**
+ * nodes/analyze-fundamentals.ts
+ *
+ * LLM node: analyzes the company's financial fundamentals.
+ *
+ * Uses ChatOpenAI pointed at NVIDIA NIM with .withStructuredOutput(FundamentalsSchema).
+ * The method: "json_schema" option is required for NIM compatibility — some NIM
+ * endpoints do not support the "strict" tool-calling format.
+ *
+ * Critically: the prompt injects the actual financial data from state, and the
+ * FundamentalsSchema's .describe() annotations act as field-level instructions.
+ * If financialsAvailable is false, the node still produces valid output but
+ * explicitly marks the data gap in overallScore and dataLimitationNote.
+ */
+
+import { ChatOpenAI } from "@langchain/openai";
+import { AgentStateType } from "../state";
+import { FundamentalsSchema } from "../schemas";
+
+// ---------------------------------------------------------------------------
+// Helper: format financial data into a readable prompt context
+// ---------------------------------------------------------------------------
+
+function formatFinancialContext(state: AgentStateType): string {
+  if (!state.financialsAvailable || !state.financials) {
+    const errors = state.errors
+      .filter((e) => e.includes("financial") || e.includes("FMP"))
+      .join("; ");
+    return `FINANCIAL DATA STATUS: Unavailable. ${errors || "No specific error recorded."}`;
+  }
+
+  const { incomeStatements, keyMetrics } = state.financials;
+  const profile = state.companyProfile;
+
+  // Format revenue figures for readability
+  const formatNum = (n: number | null, prefix = ""): string => {
+    if (n === null) return "N/A";
+    const abs = Math.abs(n);
+    if (abs >= 1e9) return `${prefix}${(n / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `${prefix}${(n / 1e6).toFixed(1)}M`;
+    return `${prefix}${n.toFixed(2)}`;
+  };
+
+  const formatPct = (n: number | null): string =>
+    n === null ? "N/A" : `${(n * 100).toFixed(1)}%`;
+
+  const incomeLines = incomeStatements
+    .map(
+      (stmt) =>
+        `  ${stmt.date}: Revenue=${formatNum(stmt.revenue, "$")}, ` +
+        `GrossMargin=${formatPct(stmt.grossProfitRatio)}, ` +
+        `OperatingMargin=${formatPct(stmt.operatingIncomeRatio)}, ` +
+        `NetMargin=${formatPct(stmt.netIncomeRatio)}, ` +
+        `EPS=${stmt.eps !== null ? `$${stmt.eps.toFixed(2)}` : "N/A"}`
+    )
+    .join("\n");
+
+  const metricsText = keyMetrics
+    ? `P/E=${keyMetrics.peRatio?.toFixed(1) ?? "N/A"}, ` +
+      `P/B=${keyMetrics.pbRatio?.toFixed(2) ?? "N/A"}, ` +
+      `EV/EBITDA=${keyMetrics.evToEbitda?.toFixed(1) ?? "N/A"}, ` +
+      `D/E=${keyMetrics.debtToEquity?.toFixed(2) ?? "N/A"}, ` +
+      `ROE=${formatPct(keyMetrics.returnOnEquity)}, ` +
+      `ROA=${formatPct(keyMetrics.returnOnAssets)}, ` +
+      `FCF/share=${keyMetrics.freeCashFlowPerShare !== null ? `$${keyMetrics.freeCashFlowPerShare.toFixed(2)}` : "N/A"}`
+    : "Key metrics: Not available";
+
+  return (
+    `Company: ${profile?.name ?? state.ticker} (${state.ticker})\n` +
+    `Sector: ${profile?.sector ?? "Unknown"} | Industry: ${profile?.industry ?? "Unknown"}\n` +
+    `Market Cap: ${formatNum(profile?.marketCap ?? null, "$")}\n\n` +
+    `INCOME STATEMENTS (annual):\n${incomeLines}\n\n` +
+    `VALUATION & EFFICIENCY METRICS:\n${metricsText}`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Main node function
+// ---------------------------------------------------------------------------
+
+export async function analyzeFundamentalsNode(
+  state: AgentStateType
+): Promise<Partial<AgentStateType>> {
+  if (!state.ticker) {
+    return { errors: ["Fundamentals analysis skipped — no ticker resolved"] };
+  }
+
+  const llm = new ChatOpenAI({
+    model: "meta/llama-3.1-405b-instruct",
+    apiKey: process.env.NVIDIA_NIM_API_KEY,
+    configuration: {
+      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+    },
+    temperature: 0.1,
+  });
+
+  const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
+    method: "json_schema",
+  });
+
+  const financialContext = formatFinancialContext(state);
+
+  const systemPrompt =
+    `You are a senior equity research analyst. Your task is to analyze the financial fundamentals ` +
+    `of a company and produce a structured assessment. ` +
+    `Base your analysis ONLY on the data provided — do not introduce external knowledge about this company's financials. ` +
+    `If data fields show N/A, acknowledge the gap rather than inventing numbers.`;
+
+  const userPrompt =
+    `Analyze the financial fundamentals for ${state.ticker} based on the data below.\n\n` +
+    `${financialContext}\n\n` +
+    `Provide a rigorous, specific assessment. Reference actual numbers in your analysis.`;
+
+  try {
+    const result = await structuredLlm.invoke([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userPrompt },
+    ]);
+
+    return { fundamentalsAnalysis: result };
+  } catch (err) {
+    console.error("[analyze_fundamentals] Error:", err);
+    // Return a degraded output rather than crashing the graph
+    return {
+      fundamentalsAnalysis: {
+        revenueGrowthAssessment: "Analysis failed due to a technical error.",
+        marginQuality: "Unavailable.",
+        balanceSheetHealth: "Unavailable.",
+        valuationComment: "Unavailable.",
+        overallScore: "unavailable",
+        keyNumbers: [],
+        dataLimitationNote: `LLM analysis failed: ${err instanceof Error ? err.message : String(err)}`,
+      },
+      errors: [`Fundamentals analysis error: ${err instanceof Error ? err.message : String(err)}`],
+    };
+  }
+}

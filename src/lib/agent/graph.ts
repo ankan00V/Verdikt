@@ -1,46 +1,109 @@
+/**
+ * agent/graph.ts
+ *
+ * Assembles the Verdikt LangGraph pipeline.
+ *
+ * Graph structure:
+ *
+ *   START
+ *     → resolve_ticker
+ *     → [parallel fan-out]
+ *         → fetch_financials   ─┐
+ *         → fetch_news          ├→ gather_data (fan-in)
+ *         → fetch_web_research ─┘
+ *     → analyze_fundamentals
+ *     → analyze_sentiment
+ *     → analyze_competitive
+ *     → synthesize_decision
+ *   END
+ *
+ * The three parallel fetch nodes run in the same LangGraph super-step,
+ * executing concurrently. gather_data acts as a fan-in synchronization point
+ * — LangGraph will not advance to analyze_fundamentals until all three
+ * parallel nodes have completed.
+ *
+ * Each node writes to its own dedicated state keys with appropriate reducers,
+ * preventing INVALID_CONCURRENT_GRAPH_UPDATE errors during parallel execution.
+ *
+ * Decision to use StateGraph vs. MessageGraph:
+ * StateGraph is correct here because we're accumulating typed research findings,
+ * not a conversational message history. The state schema is the source of truth
+ * for what the agent has learned.
+ */
+
 import { StateGraph, START, END } from "@langchain/langgraph";
-import { AgentState, AgentStateType } from "./state";
-import { resolveTicker } from "./nodes/resolveTicker";
-import { fetchFinancials } from "./nodes/fetchFinancials";
-import { fetchNews } from "./nodes/fetchNews";
-import { fetchWebResearch } from "./nodes/fetchWebResearch";
-import { analyzeFundamentals } from "./nodes/analyzeFundamentals";
-import { analyzeSentiment } from "./nodes/analyzeSentiment";
-import { analyzeCompetitivePosition } from "./nodes/analyzeCompetitivePosition";
-import { synthesizeDecision } from "./nodes/synthesizeDecision";
+import { AgentState } from "./state";
+import { resolveTickerNode } from "./nodes/resolve-ticker";
+import { fetchFinancialsNode } from "./nodes/fetch-financials";
+import { fetchNewsNode } from "./nodes/fetch-news";
+import { fetchWebResearchNode } from "./nodes/fetch-web-research";
+import { gatherDataNode } from "./nodes/gather-data";
+import { analyzeFundamentalsNode } from "./nodes/analyze-fundamentals";
+import { analyzeSentimentNode } from "./nodes/analyze-sentiment";
+import { analyzeCompetitiveNode } from "./nodes/analyze-competitive";
+import { synthesizeDecisionNode } from "./nodes/synthesize-decision";
 
-// Define the graph structure
-const workflow = new StateGraph(AgentState)
-  .addNode("resolve_ticker", resolveTicker)
-  .addNode("fetch_financials", fetchFinancials)
-  .addNode("fetch_news", fetchNews)
-  .addNode("fetch_web_research", fetchWebResearch)
-  .addNode("analyze_fundamentals", analyzeFundamentals)
-  .addNode("analyze_sentiment", analyzeSentiment)
-  .addNode("analyze_competitive_position", analyzeCompetitivePosition)
-  .addNode("synthesize_decision", synthesizeDecision)
-  
-  // Start node
-  .addEdge(START, "resolve_ticker")
-  
-  // Branch out to fetching nodes if confirmed, else skip to end
-  .addConditionalEdges("resolve_ticker", (state: AgentStateType) => {
-    if (state.companyConfirmed) {
-      return ["fetch_financials", "fetch_news", "fetch_web_research"];
-    }
-    return ["synthesize_decision"];
-  })
-  
-  // From fetching to analysis
-  .addEdge("fetch_financials", "analyze_fundamentals")
-  .addEdge("fetch_news", "analyze_sentiment")
-  .addEdge("fetch_web_research", "analyze_competitive_position")
-  
-  // From analysis to synthesis
-  .addEdge(["analyze_fundamentals", "analyze_sentiment", "analyze_competitive_position"], "synthesize_decision")
-  
-  // End
-  .addEdge("synthesize_decision", END);
+/**
+ * Builds and compiles the research graph.
+ *
+ * Called once per request in the API route — the compiled graph is not a
+ * singleton because Next.js serverless functions are stateless. If this were
+ * a long-running server, we'd memoize the compiled graph.
+ */
+export function buildGraph() {
+  const graph = new StateGraph(AgentState)
+    // -------------------------------------------------------------------------
+    // Node registrations
+    // -------------------------------------------------------------------------
+    .addNode("resolve_ticker", resolveTickerNode)
+    .addNode("fetch_financials", fetchFinancialsNode)
+    .addNode("fetch_news", fetchNewsNode)
+    .addNode("fetch_web_research", fetchWebResearchNode)
+    .addNode("gather_data", gatherDataNode)
+    .addNode("analyze_fundamentals", analyzeFundamentalsNode)
+    .addNode("analyze_sentiment", analyzeSentimentNode)
+    .addNode("analyze_competitive", analyzeCompetitiveNode)
+    .addNode("synthesize_decision", synthesizeDecisionNode)
 
-// Compile the graph
-export const investmentAgentGraph = workflow.compile();
+    // -------------------------------------------------------------------------
+    // Edge definitions — these declare the execution order
+    // -------------------------------------------------------------------------
+
+    // Entry point
+    .addEdge(START, "resolve_ticker")
+
+    // Fan-out: resolve_ticker → three parallel nodes in the same super-step
+    .addEdge("resolve_ticker", "fetch_financials")
+    .addEdge("resolve_ticker", "fetch_news")
+    .addEdge("resolve_ticker", "fetch_web_research")
+
+    // Fan-in: all three parallel nodes → gather_data (convergence point)
+    .addEdge("fetch_financials", "gather_data")
+    .addEdge("fetch_news", "gather_data")
+    .addEdge("fetch_web_research", "gather_data")
+
+    // Sequential analysis chain (each builds on accumulated state)
+    .addEdge("gather_data", "analyze_fundamentals")
+    .addEdge("analyze_fundamentals", "analyze_sentiment")
+    .addEdge("analyze_sentiment", "analyze_competitive")
+    .addEdge("analyze_competitive", "synthesize_decision")
+
+    // Terminal edge
+    .addEdge("synthesize_decision", END);
+
+  return graph.compile();
+}
+
+// Export the node name list for use in the streaming API route
+// so we can map LangGraph event node names to human-readable labels
+export const NODE_LABELS: Record<string, string> = {
+  resolve_ticker: "Resolving ticker",
+  fetch_financials: "Fetching financials",
+  fetch_news: "Fetching news",
+  fetch_web_research: "Researching competitive landscape",
+  gather_data: "Gathering data",
+  analyze_fundamentals: "Analyzing fundamentals",
+  analyze_sentiment: "Analyzing sentiment",
+  analyze_competitive: "Analyzing competitive position",
+  synthesize_decision: "Synthesizing verdict",
+};
