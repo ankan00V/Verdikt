@@ -256,7 +256,7 @@ export default function LandingPage() {
             <span className="text-lg font-semibold tracking-tight text-white">verdikt</span>
             <span className="text-sm text-white/40 hidden md:inline">AI-powered investment research.</span>
           </div>
-          <a href="https://github.com" target="_blank" rel="noreferrer" className="text-sm text-white/40 hover:text-white transition-colors">
+          <a href="https://github.com/ankan00V/Verdikt" target="_blank" rel="noreferrer" className="text-sm text-white/40 hover:text-white transition-colors">
             GitHub Repository
           </a>
         </div>
