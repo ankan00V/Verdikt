@@ -93,7 +93,8 @@ export async function analyzeFundamentalsNode(
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
     temperature: 0.1,
-    timeout: 55000,
+    maxTokens: 600,
+    timeout: 35000,
   });
 
   const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
