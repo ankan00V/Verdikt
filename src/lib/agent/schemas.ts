@@ -18,31 +18,43 @@ import { z } from "zod";
 // ---------------------------------------------------------------------------
 
 export const FundamentalsSchema = z.object({
+  available: z
+    .boolean()
+    .describe("Whether financial data was available for analysis. If false, set to false and use the overallScore/dataLimitationNote fields to explain."),
+  flag: z
+    .string()
+    .optional()
+    .describe("An explicit flag indicating data availability, e.g., 'DATA_UNAVAILABLE'. Omit if available."),
   revenueGrowthAssessment: z
     .string()
+    .nullable()
+    .optional()
     .describe(
       "Assessment of revenue growth trajectory over the past 1-3 years. " +
-        "Include specific year-over-year percentages if data is available. " +
-        "If data is unavailable, state that explicitly."
+        "Include specific year-over-year percentages if data is available."
     ),
   marginQuality: z
     .string()
+    .nullable()
+    .optional()
     .describe(
       "Assessment of gross, operating, and net profit margins. " +
-        "Comment on trend direction (expanding/compressing) and absolute level vs. industry norms. " +
-        "Include specific margin percentages."
+        "Comment on trend direction and absolute level vs. industry norms."
     ),
   balanceSheetHealth: z
     .string()
+    .nullable()
+    .optional()
     .describe(
       "Assessment of balance sheet strength: debt-to-equity ratio, current ratio, " +
-        "free cash flow generation. Flag leverage concerns if present."
+        "free cash flow generation."
     ),
   valuationComment: z
     .string()
+    .nullable()
+    .optional()
     .describe(
-      "Comment on valuation multiples (P/E, EV/EBITDA, P/B) relative to growth profile. " +
-        "State if data is insufficient for a reliable valuation call."
+      "Comment on valuation multiples (P/E, EV/EBITDA, P/B) relative to growth profile."
     ),
   overallScore: z
     .enum(["strong", "adequate", "weak", "unavailable"])
@@ -52,16 +64,17 @@ export const FundamentalsSchema = z.object({
   keyNumbers: z
     .array(z.string())
     .max(6)
+    .nullable()
+    .optional()
     .describe(
-      "Up to 6 key financial figures as formatted strings, e.g. 'Revenue FY2024: $394B', " +
-        "'Net margin: 26.4%', 'P/E ratio: 28x'. Always use the ticker's currency."
+      "Up to 6 key financial figures as formatted strings. Omit if unavailable."
     ),
   dataLimitationNote: z
     .string()
     .optional()
     .describe(
       "If financial data was unavailable or incomplete, describe specifically what is missing " +
-        "and how it limits this analysis. Omit if data was fully available."
+        "and how it limits this analysis. Explain that the analysis proceeds with news and web research."
     ),
 });
 

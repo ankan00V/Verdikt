@@ -5,8 +5,10 @@ import type { FindingEntry, ResearchState } from "@/lib/researchTypes";
 /* ─── Verdict stamp ──────────────────────────────────────────── */
 function VerdictStamp({
   verdict,
+  hasFinancialWarning,
 }: {
   verdict: NonNullable<ResearchState["verdict"]>;
+  hasFinancialWarning?: boolean;
 }) {
   const isInvest = verdict.decision === "INVEST";
   const color = isInvest ? "#10b981" : "#ef4444";
@@ -42,6 +44,16 @@ function VerdictStamp({
           />
         </div>
       </div>
+
+      {hasFinancialWarning && verdict.confidence <= 0.55 && (
+        <div className="mb-6 px-4 py-3 rounded-xl border border-[#C9A227]/30 bg-[#C9A227]/10 flex items-start gap-3">
+          <span className="text-[#C9A227] text-sm mt-0.5">⚠</span>
+          <p className="text-xs text-[#C9A227]/90 leading-[1.5]">
+            <strong className="font-semibold block mb-0.5 text-[#C9A227]">Limited analysis</strong>
+            Financial data was unavailable for this company. Confidence score has been capped.
+          </p>
+        </div>
+      )}
 
       {/* Reasoning */}
       <p className="text-sm text-white/70 leading-[1.7]">{verdict.reasoning}</p>
@@ -87,12 +99,14 @@ interface DetailPaneProps {
   selectedFinding: FindingEntry | null;
   verdict: ResearchState["verdict"] | undefined;
   isPipelineComplete: boolean;
+  hasFinancialWarning?: boolean;
 }
 
 export default function DetailPane({
   selectedFinding,
   verdict,
   isPipelineComplete,
+  hasFinancialWarning,
 }: DetailPaneProps) {
   if (!selectedFinding && !isPipelineComplete) {
     return (
@@ -118,7 +132,7 @@ export default function DetailPane({
 
       <div className="flex-1 overflow-y-auto slim-scroll px-5 py-5">
         {/* Show verdict if pipeline is done */}
-        {isPipelineComplete && verdict && <VerdictStamp verdict={verdict} />}
+        {isPipelineComplete && verdict && <VerdictStamp verdict={verdict} hasFinancialWarning={hasFinancialWarning} />}
 
         {/* Show selected finding detail */}
         {shouldShowFindingRaw && (

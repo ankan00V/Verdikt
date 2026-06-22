@@ -162,11 +162,19 @@ export default function ResearchPage() {
 
               {/* Right — detail / verdict */}
               <div className="overflow-hidden flex flex-col">
-                <DetailPane
-                  selectedFinding={selectedFinding}
-                  verdict={state.verdict}
-                  isPipelineComplete={isPipelineComplete}
-                />
+                {(() => {
+                  const hasFinancialWarning = state.findings.some(
+                    (f) => f.nodeId === "fetch_financials" && (f.output?.financials as Record<string, unknown>)?.available === false
+                  );
+                  return (
+                    <DetailPane
+                      selectedFinding={selectedFinding}
+                      verdict={state.verdict}
+                      isPipelineComplete={isPipelineComplete}
+                      hasFinancialWarning={hasFinancialWarning}
+                    />
+                  );
+                })()}
               </div>
             </div>
           </div>

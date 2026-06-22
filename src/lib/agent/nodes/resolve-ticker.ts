@@ -157,9 +157,7 @@ export async function resolveTickerNode(
   if (!ticker) {
     return {
       errors: [
-        `Could not resolve a stock ticker for "${companyName}". ` +
-          "This may be a private company, a non-US listed company, or the name may be misspelled. " +
-          "Verdikt currently supports US-listed equities on NYSE, NASDAQ, and AMEX.",
+        `Could not identify a publicly listed company matching this name ("${companyName}"). Please check the spelling or try the ticker symbol directly.`
       ],
     };
   }

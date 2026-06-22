@@ -22,14 +22,12 @@ import { FundamentalsSchema } from "../schemas";
 // ---------------------------------------------------------------------------
 
 function formatFinancialContext(state: AgentStateType): string {
-  if (!state.financialsAvailable || !state.financials) {
-    const errors = state.errors
-      .filter((e) => e.includes("financial") || e.includes("FMP"))
-      .join("; ");
-    return `FINANCIAL DATA STATUS: Unavailable. ${errors || "No specific error recorded."}`;
+  if (!state.financials?.available || !state.financials.data) {
+    const reason = state.financials?.reason || "Financial data unavailable.";
+    return `FINANCIAL DATA STATUS: Unavailable.\nReason: ${reason}`;
   }
 
-  const { incomeStatements, keyMetrics } = state.financials;
+  const { incomeStatements, keyMetrics } = state.financials.data;
   const profile = state.companyProfile;
 
   // Format revenue figures for readability
@@ -104,7 +102,7 @@ export async function analyzeFundamentalsNode(
     `You are a senior equity research analyst. Your task is to analyze the financial fundamentals ` +
     `of a company and produce a structured assessment. ` +
     `Base your analysis ONLY on the data provided — do not introduce external knowledge about this company's financials. ` +
-    `If data fields show N/A, acknowledge the gap rather than inventing numbers.`;
+    `If financial data is marked as Unavailable, you MUST set available to false, you MUST NOT invent, estimate, or approximate any financial figures. Do not state revenue, margins, growth rates, or any numerical financial metric. Only acknowledge that data is unavailable and explain what that means for the analysis.`;
 
   const userPrompt =
     `Analyze the financial fundamentals for ${state.ticker} based on the data below.\n\n` +
@@ -123,6 +121,8 @@ export async function analyzeFundamentalsNode(
     // Return a degraded output rather than crashing the graph
     return {
       fundamentalsAnalysis: {
+        available: false,
+        flag: "ERROR",
         revenueGrowthAssessment: "Analysis failed due to a technical error.",
         marginQuality: "Unavailable.",
         balanceSheetHealth: "Unavailable.",

@@ -61,7 +61,7 @@ export default function LandingPage() {
               
               <FadeIn delay={800}>
                 <p className="text-base md:text-lg text-gray-300 max-w-xl leading-relaxed">
-                  Give it a name. Verdikt researches the fundamentals, the sentiment, and the competitive position — then tells you, plainly, whether it's worth your conviction.
+                  Give it a name. Verdikt researches the fundamentals, the sentiment, and the competitive position — then tells you, plainly, whether it&apos;s worth your conviction.
                 </p>
               </FadeIn>
             </div>

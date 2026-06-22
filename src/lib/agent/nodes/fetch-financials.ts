@@ -112,7 +112,7 @@ async function fetchRatios(
 export async function fetchFinancialsNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  const { ticker } = state;
+  const { ticker, companyProfile } = state;
 
   // If ticker resolution failed, skip gracefully
   if (!ticker) {
@@ -138,24 +138,35 @@ export async function fetchFinancialsNode(
       fetchRatios(ticker, apiKey),
     ]);
 
-    // Consider data available if we got at least one income statement
-    const financialsAvailable = incomeStatements.length > 0;
+    // Consider data available if we got at least one income statement with valid revenue,
+    // and the company is listed on a major US exchange.
+    const hasIncomeStatement = incomeStatements.length > 0;
+    const latestRevenue = hasIncomeStatement ? incomeStatements[0].revenue : null;
+    const hasValidRevenue = latestRevenue !== null && latestRevenue > 0;
+    
+    const exchange = companyProfile?.exchange?.toUpperCase() || "";
+    const isMajorUSExchange = ["NYSE", "NASDAQ", "AMEX"].includes(exchange);
+
+    const financialsAvailable = hasIncomeStatement && hasValidRevenue && isMajorUSExchange;
 
     if (!financialsAvailable) {
       return {
-        financials: null,
+        financials: {
+          available: false,
+          reason: "Financial data unavailable for this company. FMP free tier covers US-listed public companies. This analysis will proceed using news and web research only.",
+          data: null
+        },
         financialsAvailable: false,
-        errors: [
-          `No financial data found for ${ticker} on FMP. ` +
-            "This may indicate a non-US company, a recently listed company, or insufficient data coverage.",
-        ],
       };
     }
 
     const financials: FinancialData = {
-      incomeStatements,
-      keyMetrics,
-      ratios,
+      available: true,
+      data: {
+        incomeStatements,
+        keyMetrics,
+        ratios,
+      }
     };
 
     return {

@@ -29,9 +29,13 @@ export interface CompanyProfile {
 }
 
 export interface FinancialData {
-  incomeStatements: IncomeStatement[];
-  keyMetrics: KeyMetrics | null;
-  ratios: FinancialRatios | null;
+  available: boolean;
+  reason?: string;
+  data: {
+    incomeStatements: IncomeStatement[];
+    keyMetrics: KeyMetrics | null;
+    ratios: FinancialRatios | null;
+  } | null;
 }
 
 export interface IncomeStatement {
@@ -77,12 +81,14 @@ export interface SearchResult {
 
 // Structured output types from LLM analysis nodes
 export interface FundamentalsOutput {
-  revenueGrowthAssessment: string;
-  marginQuality: string;
-  balanceSheetHealth: string;
-  valuationComment: string;
+  available: boolean;
+  flag?: string;
+  revenueGrowthAssessment?: string | null;
+  marginQuality?: string | null;
+  balanceSheetHealth?: string | null;
+  valuationComment?: string | null;
   overallScore: "strong" | "adequate" | "weak" | "unavailable";
-  keyNumbers: string[];
+  keyNumbers?: string[] | null;
   dataLimitationNote?: string;
 }
 

@@ -45,6 +45,12 @@ export default function FindingsFeed({
       <div className="flex-1 overflow-y-auto slim-scroll divide-y divide-white/[0.04]">
         {findings.map((finding) => {
           const isSelected = selectedId === finding.nodeId;
+          
+          let displaySummary = finding.summary;
+          if (finding.nodeId === "fetch_financials" && (finding.output?.financials as Record<string, unknown>)?.available === false) {
+            displaySummary = "Financial data unavailable for this company. FMP free tier covers US-listed equities. Proceeding with news and web research.";
+          }
+
           return (
             <button
               key={finding.nodeId}
@@ -67,7 +73,7 @@ export default function FindingsFeed({
                 </span>
               </div>
               <p className="text-[11px] text-white/50 leading-[1.5] line-clamp-2">
-                {finding.summary}
+                {displaySummary}
               </p>
             </button>
           );
