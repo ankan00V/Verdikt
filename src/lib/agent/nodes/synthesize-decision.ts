@@ -79,7 +79,8 @@ export async function synthesizeDecisionNode(
     `4. Your competitiveSummary MUST cite the moat score and specific findings from the competitive analysis.\n` +
     `5. If data was unavailable, lower your confidence score accordingly and note it in dataQualityNote.\n` +
     `6. keyRisks and keyStrengths must be synthesized from the prior analyses — not invented.\n` +
-    `7. Confidence 70+ means clear evidence. 50-69 means mixed signals. Below 50 means data is insufficient for a conviction call.`;
+    `7. Confidence 70+ means clear evidence. 50-69 means mixed signals. Below 50 means data is insufficient for a conviction call.\n` +
+    `8. If financialData.available is false (or dataFlags.financialsAvailable is false), you MUST set confidence to 55 or below. You cannot make a high-confidence investment decision without verified financial data. State this explicitly in your reasoning.`;
 
   const userPrompt =
     `Based on the following research findings, deliver your final investment verdict for ${companyName} (${state.ticker}).\n\n` +

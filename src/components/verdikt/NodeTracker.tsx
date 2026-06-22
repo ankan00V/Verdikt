@@ -2,8 +2,15 @@
 
 import type { NodeState, NodeStatus } from "@/lib/researchTypes";
 
-function StatusDot({ status }: { status: NodeStatus }) {
-  if (status === "complete")
+function StatusDot({ status, isWarning }: { status: NodeStatus; isWarning?: boolean }) {
+  if (status === "complete") {
+    if (isWarning) {
+      return (
+        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#C9A227]/15 flex items-center justify-center">
+          <span className="text-[10px]" style={{ color: '#C9A227' }}>⚠</span>
+        </span>
+      );
+    }
     return (
       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-emerald-500/15 flex items-center justify-center">
         <svg className="w-3 h-3 text-emerald-400" fill="none" viewBox="0 0 12 12">
@@ -17,6 +24,7 @@ function StatusDot({ status }: { status: NodeStatus }) {
         </svg>
       </span>
     );
+  }
   if (status === "in-progress")
     return (
       <span className="flex-shrink-0 w-5 h-5 rounded-full bg-amber-500/15 flex items-center justify-center">
@@ -57,34 +65,44 @@ export default function NodeTracker({ nodes }: NodeTrackerProps) {
         </p>
       </div>
       <div className="flex-1 overflow-y-auto slim-scroll px-3 py-3 flex flex-col gap-1">
-        {nodes.map((node) => (
-          <div
-            key={node.name}
-            className={`flex items-start gap-2.5 px-2.5 py-2 rounded-lg transition-colors ${
-              node.status === "in-progress"
-                ? "bg-amber-500/5 border border-amber-500/15"
-                : node.status === "complete"
-                ? "bg-emerald-500/[0.03]"
-                : node.status === "failed"
-                ? "bg-red-500/5 border border-red-500/15"
-                : "opacity-40"
-            }`}
-          >
-            <StatusDot status={node.status} />
-            <div className="flex-1 min-w-0">
-              <p
-                className={`font-mono text-[11px] leading-tight truncate ${
-                  node.status === "in-progress"
-                    ? "text-amber-200"
-                    : node.status === "complete"
-                    ? "text-emerald-300/80"
-                    : node.status === "failed"
-                    ? "text-red-300"
-                    : "text-white/30"
-                }`}
-              >
-                {node.name}
-              </p>
+        {nodes.map((node) => {
+          const isWarning =
+            node.name === "fetch_financials" &&
+            node.status === "complete" &&
+            (node.output?.financials as Record<string, unknown>)?.available === false;
+
+          return (
+            <div
+              key={node.name}
+              className={`flex items-start gap-2.5 px-2.5 py-2 rounded-lg transition-colors ${
+                node.status === "in-progress"
+                  ? "bg-amber-500/5 border border-amber-500/15"
+                  : node.status === "complete"
+                  ? isWarning
+                    ? "bg-[#C9A227]/[0.05]"
+                    : "bg-emerald-500/[0.03]"
+                  : node.status === "failed"
+                  ? "bg-red-500/5 border border-red-500/15"
+                  : "opacity-40"
+              }`}
+            >
+              <StatusDot status={node.status} isWarning={isWarning} />
+              <div className="flex-1 min-w-0">
+                <p
+                  className={`font-mono text-[11px] leading-tight truncate ${
+                    node.status === "in-progress"
+                      ? "text-amber-200"
+                      : node.status === "complete"
+                      ? isWarning
+                        ? "text-[#C9A227]/90"
+                        : "text-emerald-300/80"
+                      : node.status === "failed"
+                      ? "text-red-300"
+                      : "text-white/30"
+                  }`}
+                >
+                  {node.name}
+                </p>
               {node.status === "failed" && node.error && (
                 <p className="text-[10px] text-red-400/70 mt-0.5 leading-tight">
                   {node.error}
@@ -102,7 +120,8 @@ export default function NodeTracker({ nodes }: NodeTrackerProps) {
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
