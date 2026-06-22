@@ -335,7 +335,7 @@ export default function DetailPane({
           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_10px_rgba(52,211,153,0.5)]" />
         </div>
         <p className="text-sm text-emerald-400/80 font-mono tracking-widest uppercase animate-pulse">
-          Verdikt is analyzing
+          Verdikt is analyzing the verdict
         </p>
         <div className="text-xs text-white/40 mt-2 max-w-[260px] leading-relaxed">
           The AI is currently processing financial data, news, and market sentiment...
