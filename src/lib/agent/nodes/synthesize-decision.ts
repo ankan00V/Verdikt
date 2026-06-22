@@ -23,6 +23,35 @@ import { AgentStateType } from "../state";
 import { DecisionSchema } from "../schemas";
 
 // ---------------------------------------------------------------------------
+// Helper: compress findings to prevent context length timeouts on Vercel
+// ---------------------------------------------------------------------------
+
+function compressFindingsForSynthesis(state: AgentStateType) {
+  const f = state.fundamentalsAnalysis;
+  const s = state.sentimentAnalysis;
+  const c = state.competitiveAnalysis;
+
+  return {
+    fundamentals: f ? {
+      growth: f.revenueGrowthAssessment,
+      margins: f.marginQuality,
+      balanceSheet: f.balanceSheetHealth,
+      score: f.overallScore
+    } : null,
+    sentiment: s ? {
+      tone: s.overallTone,
+      momentum: s.momentumSignal,
+      topSignals: s.recentDevelopments?.slice(0, 2)
+    } : null,
+    competitive: c ? {
+      moatScore: c.moatScore,
+      position: c.marketPosition,
+      topRisks: c.competitiveRisks?.slice(0, 2)
+    } : null
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Main node function
 // ---------------------------------------------------------------------------
 
@@ -40,6 +69,8 @@ export async function synthesizeDecisionNode(
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
     },
     temperature: 0.2, // Slightly higher temp for synthesis — still deterministic enough
+    maxTokens: 800,
+    timeout: 50000,
   });
 
   const structuredLlm = llm.withStructuredOutput(DecisionSchema, {
@@ -53,9 +84,7 @@ export async function synthesizeDecisionNode(
   const priorAnalysis = JSON.stringify(
     {
       company: { name: companyName, ticker: state.ticker },
-      fundamentalsAnalysis: state.fundamentalsAnalysis,
-      sentimentAnalysis: state.sentimentAnalysis,
-      competitiveAnalysis: state.competitiveAnalysis,
+      compressedFindings: compressFindingsForSynthesis(state),
       dataFlags: {
         financialsAvailable: state.financialsAvailable,
         newsCount: state.newsResults.length,
