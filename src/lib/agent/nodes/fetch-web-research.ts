@@ -27,8 +27,8 @@ export async function fetchWebResearchNode(
   const companyName = companyProfile?.name ?? ticker;
   const sector = companyProfile?.sector ?? "";
 
-  // Query targets business fundamentals rather than breaking news
-  const query = `${companyName} ${ticker} competitive analysis business model ${sector} market 2025`;
+  // Query targets business fundamentals rather than breaking news, formulated as a question for better Tavily results
+  const query = `What is the business model, competitive advantage, and market position of "${companyName}" (${ticker}) in the ${sector} sector?`;
 
   try {
     const tool = new TavilySearch({
@@ -52,7 +52,16 @@ export async function fetchWebResearchNode(
       score: typeof r.score === "number" ? r.score : undefined,
     }));
 
-    return { webResearchResults: results };
+    // Post-filter to remove noise: article must actually mention the ticker or company name
+    const companyFirstWord = companyName.split(" ")[0].toLowerCase();
+    const searchTarget = ticker.toLowerCase();
+    
+    const filteredResults = results.filter(r => {
+      const text = `${r.title} ${r.content}`.toLowerCase();
+      return text.includes(searchTarget) || text.includes(companyFirstWord);
+    });
+
+    return { webResearchResults: filteredResults };
   } catch (err) {
     console.error("[fetch_web_research] Error:", err);
     return {
