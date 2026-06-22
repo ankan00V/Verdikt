@@ -121,7 +121,7 @@ export async function synthesizeDecisionNode(
     const result = await structuredLlm.invoke([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ]);
+    ], { signal: AbortSignal.timeout(40000) });
 
     return { decision: result };
   } catch (err) {

@@ -91,7 +91,7 @@ export async function analyzeCompetitiveNode(
     const result = await structuredLlm.invoke([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ]);
+    ], { signal: AbortSignal.timeout(30000) });
 
     return { competitiveAnalysis: result };
   } catch (err) {

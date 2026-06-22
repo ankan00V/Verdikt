@@ -120,7 +120,7 @@ export async function analyzeFundamentalsNode(
     const result = await structuredLlm.invoke([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ]);
+    ], { signal: AbortSignal.timeout(30000) });
 
     return { fundamentalsAnalysis: result };
   } catch (err) {
