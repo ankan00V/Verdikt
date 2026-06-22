@@ -1,26 +1,183 @@
+/* ==========================================================================
+   Verdikt — Global Styles
+   Three font roles, design tokens, reduced-motion, focus states.
+   ========================================================================== */
+
+/* Google Fonts — three distinct type roles */
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600&display=swap");
+
 @import "tailwindcss";
 
+/* Design tokens as CSS custom properties */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Colors */
+  --color-ink: #0b0e11;
+  --color-paper: #f7f5f0;
+  --color-paper-dim: #ede9e2;
+  --color-invest: #1a5f3f;
+  --color-pass: #8b2635;
+  --color-brass: #c9a227;
+  --color-slate: #5b6470;
+  --color-slate-light: #8a939e;
+
+  /* Typography scale */
+  --font-editorial: "Playfair Display", Georgia, serif;
+  --font-mono: "JetBrains Mono", "Fira Code", Consolas, monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Base reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+  font-size: 0.9375rem; /* 15px base */
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+}
+
+/* Focus-visible ring — keyboard users only */
+*:focus-visible {
+  outline: 2px solid var(--color-brass);
+  outline-offset: 3px;
+  border-radius: 2px;
+}
+
+/* Prevent focus ring on mouse clicks */
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Type utilities */
+.font-editorial {
+  font-family: var(--font-editorial);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* Ticker / financial figure — always monospace */
+.ticker,
+.figure,
+.financial-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* Verdikt stamp element — the signature visual */
+.verdict-stamp {
+  display: inline-block;
+  transform: rotate(-6deg);
+  transform-origin: center;
+  letter-spacing: 0.15em;
+  font-family: var(--font-editorial);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.verdict-stamp.invest {
+  color: var(--color-invest);
+  border: 3px solid var(--color-invest);
+  padding: 0.5rem 1.5rem;
+}
+
+.verdict-stamp.pass {
+  color: var(--color-pass);
+  border: 3px solid var(--color-pass);
+  padding: 0.5rem 1.5rem;
+}
+
+/* Scrollbar — minimal, dark-themed */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2a2e35;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3f47;
+}
+
+/* Reduced motion — disable all animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .verdict-stamp {
+    /* Keep the rotation — it's structural, not decorative */
+    /* But remove the stamp-drop animation */
+  }
+}
+
+/* Selection color */
+::selection {
+  background-color: var(--color-brass);
+  color: var(--color-ink);
+}
+
+/* Glass panel utility */
+.liquid-glass {
+  background: rgba(0, 0, 0, 0.4);
+  background-blend-mode: luminosity;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  position: relative;
+  overflow: hidden;
+}
+
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.4px;
+  background: linear-gradient(180deg,
+    rgba(255,255,255,0.3) 0%, rgba(255,255,255,0.1) 20%,
+    rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%,
+    rgba(255,255,255,0.1) 80%, rgba(255,255,255,0.3) 100%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Shiny gradient animation */
+@keyframes shiny {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.animate-shiny {
+  animation: shiny 6s linear infinite;
 }
