@@ -78,14 +78,14 @@ export interface SearchResult {
 // Structured output types from LLM analysis nodes
 export interface FundamentalsOutput {
   available: boolean;
-  flag?: string;
-  revenueGrowthAssessment?: string | null;
-  marginQuality?: string | null;
-  balanceSheetHealth?: string | null;
-  valuationComment?: string | null;
+  flag: string | null;
+  revenueGrowthAssessment: string | null;
+  marginQuality: string | null;
+  balanceSheetHealth: string | null;
+  valuationComment: string | null;
   overallScore: "strong" | "adequate" | "weak" | "unavailable";
-  keyNumbers?: string[] | null;
-  dataLimitationNote?: string | null;
+  keyNumbers: string[] | null;
+  dataLimitationNote: string | null;
 }
 
 export interface SentimentOutput {
@@ -114,7 +114,7 @@ export interface DecisionOutput {
   competitiveSummary: string;
   keyRisks: string[];
   keyStrengths: string[];
-  dataQualityNote?: string | null;
+  dataQualityNote: string | null;
 }
 
 // ---------------------------------------------------------------------------

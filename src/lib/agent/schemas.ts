@@ -23,12 +23,11 @@ export const FundamentalsSchema = z.object({
     .describe("Whether financial data was available for analysis. If false, set to false and use the overallScore/dataLimitationNote fields to explain."),
   flag: z
     .string()
-    .optional()
-    .describe("An explicit flag indicating data availability, e.g., 'DATA_UNAVAILABLE'. Omit if available."),
+    .nullable()
+    .describe("An explicit flag indicating data availability, e.g., 'DATA_UNAVAILABLE'. Null if available."),
   revenueGrowthAssessment: z
     .string()
     .nullable()
-    .optional()
     .describe(
       "Assessment of revenue growth trajectory over the past 1-3 years. " +
         "Include specific year-over-year percentages if data is available."
@@ -36,7 +35,6 @@ export const FundamentalsSchema = z.object({
   marginQuality: z
     .string()
     .nullable()
-    .optional()
     .describe(
       "Assessment of gross, operating, and net profit margins. " +
         "Comment on trend direction and absolute level vs. industry norms."
@@ -44,7 +42,6 @@ export const FundamentalsSchema = z.object({
   balanceSheetHealth: z
     .string()
     .nullable()
-    .optional()
     .describe(
       "Assessment of balance sheet strength: debt-to-equity ratio, current ratio, " +
         "free cash flow generation."
@@ -52,7 +49,6 @@ export const FundamentalsSchema = z.object({
   valuationComment: z
     .string()
     .nullable()
-    .optional()
     .describe(
       "Comment on valuation multiples (P/E, EV/EBITDA, P/B) relative to growth profile."
     ),
@@ -65,13 +61,12 @@ export const FundamentalsSchema = z.object({
     .array(z.string())
     .max(6)
     .nullable()
-    .optional()
     .describe(
       "Up to 6 key financial figures as formatted strings. Omit if unavailable."
     ),
   dataLimitationNote: z
     .string()
-    .nullable().optional()
+    .nullable()
     .describe(
       "If financial data was unavailable or incomplete, describe specifically what is missing " +
         "and how it limits this analysis. Explain that the analysis proceeds with news and web research."
@@ -239,7 +234,7 @@ export const DecisionSchema = z.object({
     ),
   dataQualityNote: z
     .string()
-    .nullable().optional()
+    .nullable()
     .describe(
       "If any critical data was unavailable (e.g. no financial data for this company), " +
         "note how that affects confidence in this verdict. Omit if data was complete."
