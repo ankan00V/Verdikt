@@ -172,6 +172,7 @@ export default function ResearchPage() {
                       verdict={state.verdict}
                       isPipelineComplete={isPipelineComplete}
                       hasFinancialWarning={hasFinancialWarning}
+                      onClearSelection={() => setSelectedFindingId(null)}
                     />
                   );
                 })()}
