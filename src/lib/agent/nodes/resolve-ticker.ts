@@ -21,7 +21,7 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
     topic: "general",
   });
 
-  const query = `${companyName} stock ticker symbol NYSE NASDAQ`;
+  const query = `${companyName} stock ticker symbol Yahoo Finance`;
   const results = await tool.invoke({ query });
 
   // The results might be a JSON string, an array, or an object with a "results" array
@@ -41,8 +41,8 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
     maxTokens: 20,
   });
 
-  const prompt = `Extract ONLY the stock ticker symbol for "${companyName}" from the text below. 
-Reply with just the ticker (e.g. "AAPL") and nothing else.
+  const prompt = `Extract ONLY the stock ticker symbol (specifically the Yahoo Finance ticker symbol, e.g., AAPL, TATASTEEL.NS, 005930.KS) for "${companyName}" from the text below. 
+Reply with just the ticker and nothing else.
 If no clear ticker is found, reply "UNKNOWN".
 
 Text:
@@ -52,7 +52,7 @@ ${content.slice(0, 2000)}`;
     const response = await llm.invoke(prompt);
     const ticker = (response.content as string).trim().toUpperCase();
 
-    return ticker === "UNKNOWN" || ticker.length > 6 ? null : ticker;
+    return ticker === "UNKNOWN" || ticker.length > 15 ? null : ticker;
   } catch (error) {
     console.error("[resolve_ticker] LLM extraction error:", error);
     return null;
