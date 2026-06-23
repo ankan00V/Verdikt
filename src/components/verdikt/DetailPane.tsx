@@ -114,18 +114,18 @@ function Section({ title, content }: { title: string; content: any }) {
   );
 }
 
-function renderFindingDetail(nodeId: string, output: Record<string, any>) {
+function renderFindingDetail(nodeId: string, output: Record<string, any>, latestProfile?: any) {
   switch (nodeId) {
     case "resolve_ticker": {
-      const p = output.companyProfile;
-      const t = output.ticker;
+      const p = output.companyProfile || latestProfile;
+      const t = output.ticker || output.companyProfile?.ticker || latestProfile?.ticker;
       return (
         <div className="flex flex-col gap-4">
           <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-4">
                 <span className="text-xs text-white/40 font-mono w-20">Ticker:</span>
-                <span className="text-sm font-semibold">{p?.ticker || t || "N/A"}</span>
+                <span className="text-sm font-semibold">{t || "N/A"}</span>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs text-white/40 font-mono w-20">Company:</span>
@@ -313,6 +313,7 @@ interface DetailPaneProps {
   verdict: ResearchState["verdict"] | undefined;
   isPipelineComplete: boolean;
   hasFinancialWarning?: boolean;
+  companyProfile?: any;
   onClearSelection: () => void;
 }
 
@@ -321,6 +322,7 @@ export default function DetailPane({
   verdict,
   isPipelineComplete,
   hasFinancialWarning,
+  companyProfile,
   onClearSelection,
 }: DetailPaneProps) {
   if (!selectedFinding && !isPipelineComplete) {
@@ -390,7 +392,7 @@ export default function DetailPane({
             </div>
             
             {selectedFinding.output ? (
-              renderFindingDetail(selectedFinding.nodeId, selectedFinding.output)
+              renderFindingDetail(selectedFinding.nodeId, selectedFinding.output, companyProfile)
             ) : (
               <p className="text-xs text-white/40 italic">No structured output returned for this node.</p>
             )}

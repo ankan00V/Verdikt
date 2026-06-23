@@ -185,6 +185,7 @@ export default function ResearchPage() {
                   selectedFinding={selectedFinding}
                   verdict={state.verdict}
                   isPipelineComplete={isPipelineComplete}
+                  companyProfile={state.findings.find(f => f.nodeId === "fetch_financials")?.output?.companyProfile}
                   onClearSelection={() => setSelectedFindingId(null)}
                 />
               </div>
