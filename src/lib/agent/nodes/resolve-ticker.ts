@@ -41,9 +41,12 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
     maxTokens: 20,
   });
 
-  const prompt = `Extract ONLY the stock ticker symbol (specifically the Yahoo Finance ticker symbol, e.g., AAPL, TATASTEEL.NS, 005930.KS) for "${companyName}" from the text below. 
-Reply with just the ticker and nothing else.
-If no clear ticker is found, reply "UNKNOWN".
+  const prompt = `Extract ONLY the stock ticker symbol for "${companyName}" from the text below. 
+CRITICAL RULES:
+1. Always prioritize the PRIMARY US listing (NASDAQ or NYSE) over international or secondary listings (e.g., prefer PANW over PANW.TO, AAPL over AAPL.MX).
+2. Do NOT include suffixes like .TO, .KS, .NS, .L unless the company is strictly international and has no US listing.
+3. Reply with just the ticker and nothing else.
+4. If no clear ticker is found, reply "UNKNOWN".
 
 Text:
 ${content.slice(0, 2000)}`;
