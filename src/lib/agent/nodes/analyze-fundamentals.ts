@@ -88,7 +88,7 @@ export async function analyzeFundamentalsNode(
   }
 
   const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-8b-instruct",
+    model: "openai/gpt-oss-20b",
     apiKey: process.env.NVIDIA_NIM_API_KEY,
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
