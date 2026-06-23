@@ -35,6 +35,8 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
   const parsed = typeof results === "string" ? JSON.parse(results) : results;
   const resultsArray = Array.isArray(parsed) ? parsed : (parsed.results || []);
   const content = resultsArray.map((r: any) => r.content || "").join("\n");
+  console.log("[resolve_ticker] Tavily content length:", content.length);
+  console.log("[resolve_ticker] Tavily first 200 chars:", content.slice(0, 200));
 
   const { ChatOpenAI } = await import("@langchain/openai");
   const llm = new ChatOpenAI({
@@ -49,9 +51,10 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
 
   const prompt = `Extract up to 3 stock ticker symbols for "${companyName}" from the text below. 
 CRITICAL RULES:
-1. Prioritize PRIMARY US listings (NASDAQ or NYSE) as the first items in the array.
-2. Reply ONLY with a valid JSON array of strings, e.g., ["PANW", "PANW.TO"] or ["AAPL"].
-3. If no clear ticker is found, reply ["UNKNOWN"].
+1. If the company has a US listing (NASDAQ/NYSE), put it first.
+2. If it is an international company, include its international tickers (e.g., ["TATASTEEL.NS"]).
+3. Reply ONLY with a valid JSON array of strings, e.g., ["PANW", "PANW.TO"] or ["AAPL"].
+4. If no clear ticker is found, reply ["UNKNOWN"].
 
 Text:
 ${content.slice(0, 2000)}`;
@@ -60,6 +63,7 @@ ${content.slice(0, 2000)}`;
   try {
     const response = await llm.invoke(prompt);
     const contentStr = (response.content as string).trim();
+    console.log("[resolve_ticker] LLM response:", contentStr);
     // Parse JSON array
     const match = contentStr.match(/\[[\s\S]*\]/);
     if (match) {
@@ -67,6 +71,7 @@ ${content.slice(0, 2000)}`;
     } else {
       candidates = [contentStr.replace(/[^A-Za-z0-9.]/g, "")];
     }
+    console.log("[resolve_ticker] Parsed candidates:", candidates);
   } catch (error) {
     console.error("[resolve_ticker] LLM extraction error:", error);
     return null;
@@ -84,6 +89,15 @@ ${content.slice(0, 2000)}`;
     } catch (e) {
       console.warn(`[resolve_ticker] Candidate ${ticker} failed Yahoo validation. Trying next...`);
     }
+  }
+
+  // If we get here, none of the candidates had Yahoo Finance data.
+  // BUT we don't want to fail! We want to pass the best candidate forward
+  // so the downstream LLM fallback can generate data for it.
+  const validCandidates = candidates.filter(t => t && t !== "UNKNOWN" && t.length <= 15);
+  if (validCandidates.length > 0) {
+    console.warn(`[resolve_ticker] All candidates failed Yahoo verification. Passing first candidate down to trigger LLM fallback: ${validCandidates[0]}`);
+    return validCandidates[0].toUpperCase();
   }
 
   return null;

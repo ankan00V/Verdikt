@@ -20,6 +20,12 @@ async function main() {
     console.log("Fundamentals:", result.decision?.fundamentalsSummary);
     console.log("Sentiment:", result.decision?.sentimentSummary);
     console.log("Competitive:", result.decision?.competitiveSummary);
+    if (result.errors && result.errors.length > 0) {
+      console.log("=== ERRORS ===");
+      console.log(result.errors);
+    }
+    console.log("=== FULL RESULT ===");
+    console.dir(result, { depth: null });
   } catch (error) {
     console.error("Error:", error);
   }

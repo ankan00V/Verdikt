@@ -152,7 +152,7 @@ export async function fetchFinancialsNode(
         const { ChatOpenAI } = await import("@langchain/openai");
         const llm = new ChatOpenAI({
           model: "openai/gpt-oss-20b",
-          apiKey: process.env.NVIDIA_NIM_API_KEY,
+          apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
           configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
           temperature: 1,
           maxTokens: 4096,
