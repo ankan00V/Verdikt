@@ -32,6 +32,7 @@
 
 import { NextRequest } from "next/server";
 import { buildGraph, NODE_LABELS } from "@/lib/agent/graph";
+import { ratelimit } from "@/lib/ratelimit";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // 60 seconds — Vercel Hobby plan maximum
@@ -52,6 +53,20 @@ function validateCompanyName(company: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest): Promise<Response> {
+  // Rate limiting check
+  if (ratelimit) {
+    // Extract IP from standard proxy headers
+    const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
+    const { success } = await ratelimit.limit(ip);
+    
+    if (!success) {
+      return new Response(
+        JSON.stringify({ error: "Rate limit exceeded. Maximum 5 research requests per hour." }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+  }
+
   // Parse and validate request body
   let companyName: string | null = null;
   try {
