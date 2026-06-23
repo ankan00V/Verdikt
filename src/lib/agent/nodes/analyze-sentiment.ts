@@ -55,7 +55,7 @@ export async function analyzeSentimentNode(
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const llm = new ChatOpenAI({
-    model: "openai/gpt-oss-20b",
+    model: "meta/llama-3.3-70b-instruct",
     apiKey: process.env.NVIDIA_NIM_API_KEY,
     configuration: {
       baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",

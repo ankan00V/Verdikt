@@ -5,14 +5,15 @@ import { buildGraph } from "./src/lib/agent/graph";
 
 async function main() {
   const company = process.argv[2];
+  const website = process.argv[3] || "";
   if (!company) {
     console.error("Please provide a company name.");
     process.exit(1);
   }
-  console.log(`Testing ${company}...`);
+  console.log(`Testing ${company} (${website})...`);
   try {
     const graph = buildGraph();
-    const result = await graph.invoke({ companyName: company });
+    const result = await graph.invoke({ companyName: company, website });
     console.log("=== RESULTS ===");
     console.log("Verdict:", result.decision?.verdict);
     console.log("Confidence:", result.decision?.confidence);
