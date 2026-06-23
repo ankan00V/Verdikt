@@ -13,6 +13,7 @@
 
 import { TavilySearch } from "@langchain/tavily";
 import { AgentStateType, SearchResult } from "../state";
+import { getCachedData } from "../../redis";
 
 export async function fetchNewsNode(
   state: AgentStateType
@@ -38,7 +39,11 @@ export async function fetchNewsNode(
       includeRawContent: false,
     });
 
-    const rawResults = await tool.invoke({ query });
+    const rawResults = await getCachedData(
+      `news:${ticker}`,
+      () => tool.invoke({ query }),
+      86400 // 24 hours
+    );
 
     // TavilySearch returns a JSON string of results
     const parsed =

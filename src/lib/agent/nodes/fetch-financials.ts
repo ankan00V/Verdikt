@@ -23,6 +23,7 @@ import {
   CompanyProfile,
 } from "../state";
 import YahooFinance from "yahoo-finance2";
+import { getCachedData } from "../../redis";
 
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
@@ -40,16 +41,21 @@ export async function fetchFinancialsNode(
   }
 
   try {
-    const quote = await yahooFinance.quoteSummary(ticker, {
-      modules: [
-        "assetProfile",
-        "price",
-        "incomeStatementHistory",
-        "defaultKeyStatistics",
-        "financialData",
-        "summaryDetail",
-      ],
-    });
+    const quote = await getCachedData(
+      `financials:${ticker}`,
+      () =>
+        yahooFinance.quoteSummary(ticker, {
+          modules: [
+            "assetProfile",
+            "price",
+            "incomeStatementHistory",
+            "defaultKeyStatistics",
+            "financialData",
+            "summaryDetail",
+          ],
+        }),
+      86400 // 24 hours
+    );
 
     // 1. Map Company Profile
     const p = quote.assetProfile;
