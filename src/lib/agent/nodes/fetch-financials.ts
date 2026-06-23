@@ -171,6 +171,7 @@ export async function fetchFinancialsNode(
         configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
         temperature: 0,
         maxTokens: 1500,
+        maxRetries: 0,
       });
       const prompt = `Provide the latest financial data for ${ticker} in JSON format strictly matching this schema:
 {

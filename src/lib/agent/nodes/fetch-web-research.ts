@@ -75,8 +75,9 @@ export async function fetchWebResearchNode(
     return { webResearchResults: filteredResults };
   } catch (err) {
     console.error("[fetch_web_research] Error:", err);
-    console.warn(`[fetch_web_research] Tavily failed for ${ticker}. Using LLM fallback via openai/gpt-oss-20b.`);
+    console.warn(`[fetch_web_research] Tavily failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
+      await new Promise(resolve => setTimeout(resolve, 4000));
       const { ChatOpenAI } = await import("@langchain/openai");
       const llm = new ChatOpenAI({
         model: "meta/llama-3.1-70b-instruct",
@@ -84,6 +85,7 @@ export async function fetchWebResearchNode(
         configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
         temperature: 1,
         maxTokens: 4096,
+        maxRetries: 0,
       });
       const prompt = `Write a short summary of the business model, competitive advantage, and market position of ${ticker}.
 Output strictly in this JSON format:

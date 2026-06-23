@@ -63,6 +63,7 @@ export async function analyzeCompetitiveNode(
     temperature: 0.0,
     maxTokens: 2500,
     timeout: 45000,
+    maxRetries: 0,
   });
 
   const structuredLlm = llm.withStructuredOutput(CompetitiveSchema, {

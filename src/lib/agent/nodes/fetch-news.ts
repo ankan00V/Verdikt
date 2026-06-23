@@ -77,6 +77,7 @@ export async function fetchNewsNode(
     console.error("[fetch_news] Error:", err);
     console.warn(`[fetch_news] Tavily failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const { ChatOpenAI } = await import("@langchain/openai");
       const llm = new ChatOpenAI({
         model: "meta/llama-3.1-70b-instruct",
@@ -84,6 +85,7 @@ export async function fetchNewsNode(
         configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
         temperature: 1,
         maxTokens: 4096,
+        maxRetries: 0,
       });
       const prompt = `Write 3 recent fictional or estimated news headlines and summaries for ${ticker}.
 Output strictly in this JSON format:

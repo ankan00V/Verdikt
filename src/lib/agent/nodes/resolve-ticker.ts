@@ -48,6 +48,7 @@ async function tavilyResolveTicker(companyName: string, website?: string): Promi
     },
     temperature: 0,
     maxTokens: 50,
+    maxRetries: 0,
   });
 
   const prompt = `Extract up to 3 stock ticker symbols for the company operating at the website: ${website}. The user referred to them as "${companyName}", but the website is the absolute source of truth. Rely on the website URL over the provided name. 
