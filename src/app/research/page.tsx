@@ -12,6 +12,7 @@ import Link from "next/link";
 
 export default function ResearchPage() {
   const [input, setInput] = useState("");
+  const [website, setWebsite] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { state, selectedFindingId, setSelectedFindingId, startResearch, reset } =
     useResearch();
@@ -26,12 +27,14 @@ export default function ResearchPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const company = input.trim();
-    if (!company) return;
-    startResearch(company);
+    const url = website.trim();
+    if (!company || !url) return;
+    startResearch(company, url);
   };
 
   const handleReset = () => {
     setInput("");
+    setWebsite("");
     reset();
     setTimeout(() => inputRef.current?.focus(), 100);
   };
@@ -87,9 +90,15 @@ export default function ResearchPage() {
                   placeholder="Enter a company name…"
                   className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-5 py-3.5 text-base text-white placeholder-white/25 outline-none focus:border-white/25 focus:bg-white/[0.06] transition-all font-medium"
                 />
+                <input
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="Company website (e.g. apple.com)"
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-5 py-3.5 text-base text-white placeholder-white/25 outline-none focus:border-white/25 focus:bg-white/[0.06] transition-all font-medium"
+                />
                 <button
                   type="submit"
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || !website.trim()}
                   className="flex items-center gap-2 bg-white text-black font-medium text-sm px-5 py-3.5 rounded-xl hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                   Research
@@ -98,19 +107,28 @@ export default function ResearchPage() {
               </form>
 
               {/* Recent examples */}
-              <div className="mt-6 flex flex-wrap gap-2 justify-center">
-                {["Apple", "Palantir", "Nvidia", "Shopify"].map((ex) => (
-                  <button
-                    key={ex}
+              <div className="mt-6 flex flex-col items-center gap-3">
+                <p className="text-xs text-white/40 uppercase tracking-widest font-semibold">Try an example</p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {[
+                    { name: "Apple", url: "apple.com" },
+                    { name: "Palantir", url: "palantir.com" },
+                    { name: "Nvidia", url: "nvidia.com" },
+                    { name: "Shopify", url: "shopify.com" }
+                  ].map((ex) => (
+                    <button
+                      key={ex.name}
                     onClick={() => {
-                      setInput(ex);
-                      startResearch(ex);
+                      setInput(ex.name);
+                      setWebsite(ex.url);
+                      startResearch(ex.name, ex.url);
                     }}
                     className="text-xs text-white/40 hover:text-white/70 px-3 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-all font-mono"
                   >
-                    {ex}
+                    {ex.name}
                   </button>
                 ))}
+                </div>
               </div>
             </div>
           </div>

@@ -15,7 +15,7 @@ import { AgentStateType } from "../state";
 
 import yahooFinance from "yahoo-finance2";
 
-async function tavilyResolveTicker(companyName: string): Promise<string | null> {
+async function tavilyResolveTicker(companyName: string, website?: string): Promise<string | null> {
   const { TavilySearch } = await import("@langchain/tavily");
 
   const tool = new TavilySearch({
@@ -23,7 +23,7 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
     topic: "general",
   });
 
-  const query = `${companyName} stock ticker symbol Yahoo Finance`;
+  const query = `"${companyName}" ${website ? `(${website})` : ""} stock ticker symbol Yahoo Finance`;
   let results;
   try {
     results = await tool.invoke({ query });
@@ -49,7 +49,7 @@ async function tavilyResolveTicker(companyName: string): Promise<string | null> 
     maxTokens: 50,
   });
 
-  const prompt = `Extract up to 3 stock ticker symbols for "${companyName}" from the text below. 
+  const prompt = `Extract up to 3 stock ticker symbols for "${companyName}" (website: ${website}) from the text below. 
 CRITICAL RULES:
 1. If the company has a US listing (NASDAQ/NYSE), put it first.
 2. If it is an international company, include its international tickers (e.g., ["TATASTEEL.NS"]).
@@ -113,7 +113,7 @@ export async function resolveTickerNode(
 
   try {
     // Resolve ticker using Tavily
-    ticker = await tavilyResolveTicker(companyName.trim());
+    ticker = await tavilyResolveTicker(companyName.trim(), state.website);
 
     if (!ticker) {
       return {

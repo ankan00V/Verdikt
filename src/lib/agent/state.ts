@@ -125,6 +125,7 @@ export interface DecisionOutput {
 export const AgentState = Annotation.Root({
   // Input
   companyName: Annotation<string>,
+  website: Annotation<string>,
 
   // Resolved by resolve_ticker
   ticker: Annotation<string | null>({

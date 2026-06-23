@@ -69,19 +69,21 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // Parse and validate request body
   let companyName: string | null = null;
+  let website: string | null = null;
   try {
     const body = await req.json();
     companyName = validateCompanyName(body?.company);
+    website = typeof body?.website === "string" ? body.website.trim() : null;
   } catch {
     return new Response(
-      JSON.stringify({ error: "Invalid request body. Expected: { company: string }" }),
+      JSON.stringify({ error: "Invalid request body. Expected: { company: string, website: string }" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
-  if (!companyName) {
+  if (!companyName || !website) {
     return new Response(
-      JSON.stringify({ error: "company must be a non-empty string (max 200 chars)" }),
+      JSON.stringify({ error: "company and website must be non-empty strings" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         // streamEvents v2: emits on_chain_start / on_chain_end for each node
         // We filter by langgraph_node metadata to get per-node events
         const eventStream = graph.streamEvents(
-          { companyName },
+          { companyName, website },
           { version: "v2" }
         );
 

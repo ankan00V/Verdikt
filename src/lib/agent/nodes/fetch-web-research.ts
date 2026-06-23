@@ -25,11 +25,12 @@ export async function fetchWebResearchNode(
     return { errors: ["Web research skipped — no ticker resolved"] };
   }
 
-  const companyName = companyProfile?.name ?? ticker;
+  const companyName = state.companyProfile?.name ?? state.ticker ?? state.companyName;
+  const website = state.website;
   const sector = companyProfile?.sector ?? "";
 
   // Query targets business fundamentals rather than breaking news, formulated as a question for better Tavily results
-  const query = `What is the business model, competitive advantage, and market position of "${companyName}" (${ticker}) in the ${sector} sector?`;
+  const query = `What is the business model, competitive advantage, and market position of "${companyName}" (${ticker}) with website ${website} in the ${sector} sector?`;
 
   try {
     const tool = new TavilySearch({

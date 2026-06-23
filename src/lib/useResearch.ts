@@ -35,7 +35,7 @@ export function useResearch() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const startResearch = useCallback(async (company: string) => {
+  const startResearch = useCallback(async (company: string, website: string) => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
@@ -58,7 +58,7 @@ export function useResearch() {
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company }),
+        body: JSON.stringify({ company, website }),
         signal: abortControllerRef.current.signal,
       });
 
