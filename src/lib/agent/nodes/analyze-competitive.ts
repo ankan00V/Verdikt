@@ -51,6 +51,9 @@ export async function analyzeCompetitiveNode(
     return { errors: ["Competitive analysis skipped — no ticker resolved"] };
   }
 
+  // Stagger request by 2s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
+  await new Promise((resolve) => setTimeout(resolve, 2000));
+
   const llm = new ChatOpenAI({
     model: "meta/llama-3.1-8b-instruct",
     apiKey: process.env.NVIDIA_NIM_API_KEY,
