@@ -42,9 +42,9 @@ export async function fetchFinancialsNode(
 
   try {
     const quote = await getCachedData(
-      `financials:${ticker}`,
-      () =>
-        yahooFinance.quoteSummary(ticker, {
+      `financials_v2:${ticker}`,
+      async () => {
+        const q = await yahooFinance.quoteSummary(ticker, {
           modules: [
             "assetProfile",
             "price",
@@ -53,7 +53,15 @@ export async function fetchFinancialsNode(
             "financialData",
             "summaryDetail",
           ],
-        }),
+        });
+        
+        // Prevent caching completely empty responses (e.g. rate limit)
+        if (!q.price && !q.financialData && !q.assetProfile) {
+          throw new Error("Yahoo Finance returned empty data (possible rate limit)");
+        }
+        
+        return q;
+      },
       86400 // 24 hours
     );
 
