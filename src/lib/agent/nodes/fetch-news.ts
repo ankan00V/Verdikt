@@ -83,11 +83,11 @@ export async function fetchNewsNode(
         model: "meta/llama-3.1-70b-instruct",
         apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
         configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
-        temperature: 1,
-        maxTokens: 4096,
+        temperature: 0.2,
+        maxTokens: 1500,
         maxRetries: 0,
       });
-      const prompt = `Write 3 recent fictional or estimated news headlines and summaries for ${ticker}.
+      const prompt = `Recall 3 major real-world news events, recent press releases, or major themes regarding ${ticker} from your training data. Do not make anything up.
 Output strictly in this JSON format:
 [
   {"title": "string", "url": "string", "content": "string"}

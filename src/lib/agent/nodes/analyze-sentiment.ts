@@ -51,8 +51,8 @@ export async function analyzeSentimentNode(
     return { errors: ["Sentiment analysis skipped — no ticker resolved"] };
   }
 
-  // Stagger request by 1s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  // Stagger request by 3s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
+  await new Promise((resolve) => setTimeout(resolve, 3000));
 
   const llm = new ChatOpenAI({
     model: "meta/llama-3.1-70b-instruct",
