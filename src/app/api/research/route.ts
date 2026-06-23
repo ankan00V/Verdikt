@@ -34,7 +34,7 @@ import { NextRequest } from "next/server";
 import { buildGraph, NODE_LABELS } from "@/lib/agent/graph";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // 60 seconds — Vercel Hobby plan maximum for serverless functions
+export const maxDuration = 300; // 300 seconds (5 minutes) for Vercel Pro/Enterprise
 
 // ---------------------------------------------------------------------------
 // Input validation
