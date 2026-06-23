@@ -95,7 +95,7 @@ export async function analyzeFundamentalsNode(
     },
     temperature: 0.0,
     maxTokens: 600,
-    timeout: 35000,
+    timeout: 45000,
   });
 
   const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
@@ -120,7 +120,7 @@ export async function analyzeFundamentalsNode(
     const result = await structuredLlm.invoke([
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ], { signal: AbortSignal.timeout(30000) });
+    ], { signal: AbortSignal.timeout(45000) });
 
     return { fundamentalsAnalysis: result };
   } catch (err) {
