@@ -66,9 +66,37 @@ export async function fetchWebResearchNode(
       return text.includes(searchTarget) || text.includes(companyFirstWord);
     });
 
+    if (filteredResults.length === 0) {
+      throw new Error("No web research results found.");
+    }
+
     return { webResearchResults: filteredResults };
   } catch (err) {
     console.error("[fetch_web_research] Error:", err);
+    console.warn(`[fetch_web_research] Tavily failed for ${ticker}. Using LLM fallback via openai/gpt-oss-20b.`);
+    try {
+      const { ChatOpenAI } = await import("@langchain/openai");
+      const llm = new ChatOpenAI({
+        model: "openai/gpt-oss-20b",
+        apiKey: process.env.NVIDIA_NIM_API_KEY,
+        configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
+        temperature: 1,
+        maxTokens: 4096,
+      });
+      const prompt = `Write a short summary of the business model, competitive advantage, and market position of ${ticker}.
+Output strictly in this JSON format:
+[
+  {"title": "string", "url": "string", "content": "string"}
+]
+Only output the JSON array. Do not include markdown.`;
+      const response = await llm.invoke(prompt);
+      const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
+      const fallbackWeb = JSON.parse(text) as SearchResult[];
+      return { webResearchResults: fallbackWeb };
+    } catch (fallbackErr) {
+      console.error("[fetch_web_research] LLM Fallback failed:", fallbackErr);
+    }
+
     return {
       webResearchResults: [],
       errors: [
