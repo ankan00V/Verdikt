@@ -82,7 +82,7 @@ export default function ResearchPage() {
                 Works best for US-listed public companies.
               </p>
 
-              <form onSubmit={handleSubmit} className="flex gap-3">
+              <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full">
                 <input
                   ref={inputRef}
                   value={input}
@@ -99,7 +99,7 @@ export default function ResearchPage() {
                 <button
                   type="submit"
                   disabled={!input.trim() || !website.trim()}
-                  className="flex items-center gap-2 bg-white text-black font-medium text-sm px-5 py-3.5 rounded-xl hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  className="flex items-center justify-center gap-2 bg-white text-black font-medium text-sm px-5 py-3.5 rounded-xl hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                 >
                   Research
                   <ArrowRight className="w-4 h-4" />
