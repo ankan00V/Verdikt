@@ -96,7 +96,13 @@ Only output the JSON array. Do not include markdown.`;
       const response = await llm.invoke(prompt);
       const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
       const fallbackWeb = JSON.parse(text) as SearchResult[];
-      return { webResearchResults: fallbackWeb };
+      const companyFirstWord = companyName.split(" ")[0].toLowerCase();
+      const searchTarget = ticker.toLowerCase();
+      const filteredFallback = fallbackWeb.filter(r => {
+        const txt = `${r.title} ${r.content}`.toLowerCase();
+        return txt.includes(searchTarget) || txt.includes(companyFirstWord);
+      });
+      return { webResearchResults: filteredFallback };
     } catch (fallbackErr) {
       console.error("[fetch_web_research] LLM Fallback failed:", fallbackErr);
     }
