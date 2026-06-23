@@ -40,6 +40,12 @@ export async function fetchFinancialsNode(
     };
   }
 
+  let companyProfile: CompanyProfile | null = state.companyProfile || null;
+  let financialsAvailable = false;
+  let incomeStatements: IncomeStatement[] = [];
+  let keyMetrics: KeyMetrics | null = null;
+  let ratios: FinancialRatios | null = null;
+
   try {
     const quote = await getCachedData(
       `financials_v2:${ticker}`,
@@ -68,34 +74,31 @@ export async function fetchFinancialsNode(
     // 1. Map Company Profile
     const p = quote.assetProfile;
     const price = quote.price;
-    const companyProfile: CompanyProfile | null =
-      p || price
-        ? {
-            ticker: ticker,
-            name: price?.shortName || ticker,
-            description: p?.longBusinessSummary || "",
-            sector: p?.sector || "",
-            industry: p?.industry || "",
-            country: p?.country || "",
-            exchange: price?.exchangeName || "",
-            marketCap: price?.marketCap || null,
-            website: p?.website || "",
-            ceo: p?.companyOfficers?.[0]?.name || "",
-          }
-        : null;
+    if (p || price) {
+      companyProfile = {
+        ticker: ticker,
+        name: price?.shortName || ticker,
+        description: p?.longBusinessSummary || "",
+        sector: p?.sector || "",
+        industry: p?.industry || "",
+        country: p?.country || "",
+        exchange: price?.exchangeName || "",
+        marketCap: price?.marketCap || null,
+        website: p?.website || "",
+        ceo: p?.companyOfficers?.[0]?.name || "",
+      };
+    }
 
     // 2. Map Income Statements
     const rawIncome = quote.incomeStatementHistory?.incomeStatementHistory || [];
     const fd = (quote.financialData || {}) as any;
     
-    const incomeStatements: IncomeStatement[] = rawIncome.map((d, i) => {
+    incomeStatements = rawIncome.map((d, i) => {
       const rev = d.totalRevenue ?? null;
       const gp = d.grossProfit ?? null;
       const op = d.operatingIncome ?? null;
       const ni = d.netIncome ?? null;
       
-      // yahoo-finance2 incomeStatementHistory often returns null or 0 for margins recently.
-      // We fallback to financialData for the most recent year (i === 0).
       const calcGpRatio = gp && rev ? gp / rev : null;
       const calcOpRatio = op && rev ? op / rev : null;
       const calcNiRatio = ni && rev ? ni / rev : null;
@@ -106,7 +109,7 @@ export async function fetchFinancialsNode(
         grossProfit: gp,
         operatingIncome: op,
         netIncome: ni,
-        eps: null, // yahooFinance2 puts this elsewhere, omitted here
+        eps: null,
         grossProfitRatio: calcGpRatio || (i === 0 ? fd.grossMargins ?? null : null),
         operatingIncomeRatio: calcOpRatio || (i === 0 ? fd.operatingMargins ?? null : null),
         netIncomeRatio: calcNiRatio || (i === 0 ? fd.profitMargins ?? null : null),
@@ -115,7 +118,6 @@ export async function fetchFinancialsNode(
 
     // 3. Map Key Metrics
     const ks = (quote.defaultKeyStatistics || {}) as any;
-    // Calculate YoY Revenue Growth
     let revenueGrowthYoY = null;
     if (incomeStatements.length >= 2) {
       const currentRev = incomeStatements[0].revenue;
@@ -125,7 +127,7 @@ export async function fetchFinancialsNode(
       }
     }
 
-    const keyMetrics: KeyMetrics = {
+    keyMetrics = {
       peRatio: ks.forwardPE ?? null,
       pbRatio: ks.priceToBook ?? ks.pbRatio ?? null,
       evToEbitda: ks.enterpriseToEbitda ?? null,
@@ -143,7 +145,7 @@ export async function fetchFinancialsNode(
 
     // 4. Map Ratios
     const sd = (quote.summaryDetail || {}) as any;
-    const ratios: FinancialRatios = {
+    ratios = {
       grossProfitMargin: fd.grossMargins ?? null,
       operatingProfitMargin: fd.operatingMargins ?? null,
       netProfitMargin: fd.profitMargins ?? null,
@@ -152,70 +154,64 @@ export async function fetchFinancialsNode(
       dividendYield: sd.dividendYield ?? null,
     };
 
-    const financialsAvailable = incomeStatements.length > 0 || Object.keys(fd).length > 0;
+    financialsAvailable = incomeStatements.length > 0 || Object.keys(fd).length > 0;
 
-    if (!financialsAvailable) {
-      console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback via openai/gpt-oss-20b.`);
-      try {
-        const { ChatOpenAI } = await import("@langchain/openai");
-        const llm = new ChatOpenAI({
-          model: "meta/llama-3.1-70b-instruct",
-          apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
-          configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
-          temperature: 1,
-          maxTokens: 4096,
-        });
-        const prompt = `Provide the latest financial data for ${ticker} in JSON format strictly matching this schema:
+  } catch (err) {
+    console.error("[fetch_financials] Yahoo Finance error:", err);
+    financialsAvailable = false;
+  }
+
+  if (!financialsAvailable) {
+    console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
+    try {
+      const { ChatOpenAI } = await import("@langchain/openai");
+      const llm = new ChatOpenAI({
+        model: "meta/llama-3.1-70b-instruct",
+        apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
+        configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
+        temperature: 0,
+        maxTokens: 1500,
+      });
+      const prompt = `Provide the latest financial data for ${ticker} in JSON format strictly matching this schema:
 {
   "incomeStatements": [{"date":"YYYY-MM-DD","revenue":number,"grossProfit":number,"operatingIncome":number,"netIncome":number,"eps":number,"grossProfitRatio":number,"operatingIncomeRatio":number,"netIncomeRatio":number}],
   "keyMetrics": {"peRatio":number,"pbRatio":number,"evToEbitda":number,"debtToEquity":number,"currentRatio":number,"returnOnEquity":number,"returnOnAssets":number,"freeCashFlowPerShare":number,"revenuePerShare":number,"revenueGrowthYoY":number},
   "ratios": {"grossProfitMargin":number,"operatingProfitMargin":number,"netProfitMargin":number,"debtEquityRatio":number,"quickRatio":number,"dividendYield":number}
 }
-Only output the JSON object. Do not include markdown formatting or explanations.`;
-        const response = await llm.invoke(prompt);
-        const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
-        const fallbackFinancials = JSON.parse(text) as FinancialData;
-        return {
-          companyProfile: companyProfile || state.companyProfile,
-          financials: fallbackFinancials,
-          financialsAvailable: true,
-        };
-      } catch (fallbackErr) {
-        console.error("[fetch_financials] LLM Fallback failed:", fallbackErr);
-      }
-
+Only output the JSON object. Do not include markdown formatting or explanations. Make sure numbers are accurate according to the latest annual reports. If any value is unknown, use null.`;
+      
+      const response = await llm.invoke(prompt);
+      const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
+      const fallbackFinancials = JSON.parse(text) as FinancialData;
+      
+      return {
+        companyProfile: companyProfile || state.companyProfile,
+        financials: fallbackFinancials,
+        financialsAvailable: true,
+      };
+    } catch (fallbackErr) {
+      console.error("[fetch_financials] LLM Fallback failed:", fallbackErr);
       return {
         companyProfile: companyProfile || state.companyProfile,
         financials: null,
         financialsAvailable: false,
         errors: [
-          `No financial data found for ${ticker} via Yahoo Finance. ` +
+          `No financial data found for ${ticker} via Yahoo Finance or Fallback API. ` +
             "This may indicate an inactive or delisted company, or missing fundamental coverage.",
         ],
       };
     }
-
-    const financials: FinancialData = {
-      incomeStatements,
-      keyMetrics,
-      ratios,
-    };
-
-    return {
-      companyProfile: companyProfile || state.companyProfile,
-      financials,
-      financialsAvailable: true,
-    };
-  } catch (err) {
-    console.error("[fetch_financials] Error:", err);
-    return {
-      financials: null,
-      financialsAvailable: false,
-      errors: [
-        `Failed to fetch financial data for ${ticker}: ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      ],
-    };
   }
+
+  const financials: FinancialData = {
+    incomeStatements,
+    keyMetrics: keyMetrics as KeyMetrics,
+    ratios: ratios as FinancialRatios,
+  };
+
+  return {
+    companyProfile: companyProfile || state.companyProfile,
+    financials,
+    financialsAvailable: true,
+  };
 }
