@@ -30,7 +30,8 @@ export async function fetchWebResearchNode(
   const sector = companyProfile?.sector ?? "";
 
   // Query targets business fundamentals rather than breaking news, formulated as a question for better Tavily results
-  const query = `What is the business model, competitive advantage, and market position of "${companyName}" (${ticker}) with website ${website} in the ${sector} sector?`;
+  // Emphasize the website as the main anchor
+  const query = `What is the business model, competitive advantage, and market position of the company operating at ${website} (ticker: ${ticker}, name: "${companyName}") in the ${sector} sector?`;
 
   try {
     const tool = new TavilySearch({

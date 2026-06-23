@@ -23,7 +23,8 @@ async function tavilyResolveTicker(companyName: string, website?: string): Promi
     topic: "general",
   });
 
-  const query = `"${companyName}" ${website ? `(${website})` : ""} stock ticker symbol Yahoo Finance`;
+  // Emphasize the website as the absolute source of truth
+  const query = `What is the stock ticker symbol for the company operating at ${website} (also known as "${companyName}")? Yahoo Finance`;
   let results;
   try {
     results = await tool.invoke({ query });
@@ -49,7 +50,7 @@ async function tavilyResolveTicker(companyName: string, website?: string): Promi
     maxTokens: 50,
   });
 
-  const prompt = `Extract up to 3 stock ticker symbols for "${companyName}" (website: ${website}) from the text below. 
+  const prompt = `Extract up to 3 stock ticker symbols for the company operating at the website: ${website}. The user referred to them as "${companyName}", but the website is the absolute source of truth. Rely on the website URL over the provided name. 
 CRITICAL RULES:
 1. If the company has a US listing (NASDAQ/NYSE), put it first.
 2. If it is an international company, include its international tickers (e.g., ["TATASTEEL.NS"]).
