@@ -61,7 +61,7 @@ export async function POST(req: NextRequest): Promise<Response> {
     
     if (!success) {
       return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Maximum 5 research requests per hour." }),
+        JSON.stringify({ error: "Rate limit exceeded. Maximum 10 research requests per hour." }),
         { status: 429, headers: { "Content-Type": "application/json" } }
       );
     }
