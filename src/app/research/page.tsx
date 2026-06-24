@@ -78,8 +78,8 @@ export default function ResearchPage() {
               <h1 className="text-2xl font-semibold text-white text-center mb-2 tracking-tight">
                 Research a company
               </h1>
-              <p className="text-sm text-white/40 text-center mb-8">
-                Works best for US-listed public companies.
+              <p className="text-sm text-white/40 text-center mb-8 max-w-md mx-auto leading-relaxed">
+                Works best for US-listed public companies. Please ensure your company name and official website correctly match, as our strict verification layer will immediately reject mismatched inputs.
               </p>
 
               <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 w-full">

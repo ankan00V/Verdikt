@@ -11,6 +11,41 @@
 
 import { AgentStateType } from "../state";
 
+async function verifyIdentity(companyName: string, website: string): Promise<boolean> {
+  const { ChatOpenAI } = await import("@langchain/openai");
+  const llm = new ChatOpenAI({
+    model: "meta/llama-3.3-70b-instruct",
+    apiKey: process.env.NVIDIA_NIM_API_KEY,
+    configuration: {
+      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+    },
+    temperature: 0,
+    maxTokens: 10,
+    maxRetries: 0,
+  });
+
+  const prompt = `You are a strict validation layer. The user entered the company name "${companyName}" and the official website "${website}". 
+Do they plausibly match the same entity? For example:
+- "Apple" and "apple.com" -> YES
+- "Anthropic" and "anthropic.com" -> YES
+- "Meta" and "facebook.com" -> YES
+- "Alphabet" and "google.com" -> YES
+- "Apple" and "anthropic.com" -> NO
+- "Microsoft" and "amazon.com" -> NO
+
+Reply ONLY with "YES" or "NO".`;
+
+  try {
+    const response = await llm.invoke(prompt);
+    const text = (response.content as string).trim().toUpperCase();
+    console.log(`[verify_identity] LLM verification for "${companyName}" & "${website}": ${text}`);
+    return text.includes("YES");
+  } catch (error) {
+    console.error("[verify_identity] LLM validation error:", error);
+    return true; // Fallback to allowing it if API fails
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 import yahooFinance from "yahoo-finance2";
@@ -114,7 +149,15 @@ export async function resolveTickerNode(
   let ticker: string | null = null;
 
   try {
-    // Resolve ticker using Tavily
+    // Step 1: Strict AI Identity Verification
+    if (state.website) {
+      const isMatch = await verifyIdentity(companyName.trim(), state.website.trim());
+      if (!isMatch) {
+        throw new Error(`Verification failed: Your company name and official website do not match. Please ensure you have entered the correct official URL for this company.`);
+      }
+    }
+
+    // Step 2: Resolve ticker using Tavily
     ticker = await tavilyResolveTicker(companyName.trim(), state.website);
 
     if (!ticker) {
