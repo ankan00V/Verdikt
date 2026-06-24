@@ -141,6 +141,22 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
       );
     }
     case "fetch_financials": {
+      if (output.financialsAvailable === false || !output.financials) {
+        return (
+          <div className="flex flex-col gap-4">
+            <div className="bg-[#C9A227]/10 border border-[#C9A227]/30 rounded-xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[#C9A227]">⚠</span>
+                <span className="text-sm font-semibold text-[#C9A227]">Private Company</span>
+              </div>
+              <p className="text-xs text-[#C9A227]/90 leading-relaxed">
+                As a private or unlisted entity, this company's detailed financial filings (Revenue, Margins, Debt) are not publicly available on stock exchanges. The AI will continue its analysis based on news momentum and web research instead.
+              </p>
+            </div>
+          </div>
+        );
+      }
+
       const p = output.companyProfile;
       const inc = output.financials?.incomeStatements?.[0] || {};
       const metrics = output.financials?.keyMetrics || {};
