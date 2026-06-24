@@ -150,7 +150,7 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
                 <span className="text-sm font-semibold text-[#C9A227]">Private Company</span>
               </div>
               <p className="text-xs text-[#C9A227]/90 leading-relaxed">
-                As a private or unlisted entity, this company's detailed financial filings (Revenue, Margins, Debt) are not publicly available on stock exchanges. The AI will continue its analysis based on news momentum and web research instead.
+                As a private or unlisted entity, this company's detailed financial filings (Revenue, Margins, Debt) are not publicly available on stock exchanges. Verdikt will continue its analysis based on news momentum and web research instead.
               </p>
             </div>
           </div>
