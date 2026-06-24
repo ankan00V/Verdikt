@@ -164,15 +164,7 @@ export async function fetchFinancialsNode(
   if (!financialsAvailable) {
     console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
-      const { ChatOpenAI } = await import("@langchain/openai");
-      const llm = new ChatOpenAI({
-        model: "meta/llama-3.1-70b-instruct",
-        apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
-        configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
-        temperature: 0,
-        maxTokens: 1500,
-        maxRetries: 0,
-      });
+      const { invokeStringLLM } = await import("../llm");
       const prompt = `Provide the latest financial data for ${ticker} in JSON format strictly matching this schema:
 {
   "incomeStatements": [{"date":"YYYY-MM-DD","revenue":number,"grossProfit":number,"operatingIncome":number,"netIncome":number,"eps":number,"grossProfitRatio":number,"operatingIncomeRatio":number,"netIncomeRatio":number}],
@@ -181,8 +173,8 @@ export async function fetchFinancialsNode(
 }
 Only output the JSON object. Do not include markdown formatting or explanations. Make sure numbers are accurate according to the latest annual reports. If any value is unknown, use null.`;
       
-      const response = await llm.invoke(prompt);
-      const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
+      const response = await invokeStringLLM(prompt, { maxTokens: 1500, temperature: 0 });
+      const text = response.replace(/```json/g, "").replace(/```/g, "");
       const fallbackFinancials = JSON.parse(text) as FinancialData;
       
       return {

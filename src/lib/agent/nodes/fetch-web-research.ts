@@ -74,23 +74,15 @@ export async function fetchWebResearchNode(
     console.warn(`[fetch_web_research] Tavily failed for ${companyName}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
       await new Promise(resolve => setTimeout(resolve, 4000));
-      const { ChatOpenAI } = await import("@langchain/openai");
-      const llm = new ChatOpenAI({
-        model: "meta/llama-3.1-70b-instruct",
-        apiKey: process.env.NVIDIA_FALLBACK_API_KEY || process.env.NVIDIA_NIM_API_KEY,
-        configuration: { baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1" },
-        temperature: 0.2,
-        maxTokens: 1500,
-        maxRetries: 0,
-      });
+      const { invokeStringLLM } = await import("../llm");
       const prompt = `Recall actual real-world facts about the business model, competitive advantage, and market position of ${ticker} from your training data. Do not hallucinate.
 Output strictly in this JSON format:
 [
   {"title": "string", "url": "string", "content": "string"}
 ]
 Only output the JSON array. Do not include markdown.`;
-      const response = await llm.invoke(prompt);
-      const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
+      const response = await invokeStringLLM(prompt, { maxTokens: 1500, temperature: 0.2 });
+      const text = response.replace(/```json/g, "").replace(/```/g, "");
       const fallbackWeb = JSON.parse(text) as SearchResult[];
       const companyFirstWord = companyName.split(" ")[0].toLowerCase();
       const searchTarget = ticker ? ticker.toLowerCase() : companyFirstWord;

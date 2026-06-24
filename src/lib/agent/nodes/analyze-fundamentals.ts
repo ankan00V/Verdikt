@@ -13,7 +13,7 @@
  * explicitly marks the data gap in overallScore and dataLimitationNote.
  */
 
-import { ChatOpenAI } from "@langchain/openai";
+import { invokeStructuredLLM } from "../llm";
 import { AgentStateType } from "../state";
 import { FundamentalsSchema } from "../schemas";
 
@@ -83,24 +83,6 @@ function formatFinancialContext(state: AgentStateType): string {
 export async function analyzeFundamentalsNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-
-
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0.0,
-    maxTokens: 2500,
-    timeout: 45000,
-    maxRetries: 0,
-  });
-
-  const structuredLlm = llm.withStructuredOutput(FundamentalsSchema, {
-    method: "jsonSchema",
-  });
-
   const financialContext = formatFinancialContext(state);
 
   const systemPrompt =
@@ -116,10 +98,11 @@ export async function analyzeFundamentalsNode(
     `Provide a rigorous, specific assessment. Reference actual numbers in your analysis.`;
 
   try {
-    const result = await structuredLlm.invoke([
+    const prompt = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ], { signal: AbortSignal.timeout(45000) });
+    ];
+    const result = await invokeStructuredLLM(prompt, FundamentalsSchema, { temperature: 0 });
 
     return { fundamentalsAnalysis: result };
   } catch (err) {

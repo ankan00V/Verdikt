@@ -10,7 +10,7 @@
  * to force the model into a concrete, defensible position rather than hedged prose.
  */
 
-import { ChatOpenAI } from "@langchain/openai";
+import { invokeStructuredLLM } from "../llm";
 import { AgentStateType } from "../state";
 import { CompetitiveSchema } from "../schemas";
 
@@ -52,22 +52,6 @@ export async function analyzeCompetitiveNode(
   // Stagger request by 6s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
   await new Promise((resolve) => setTimeout(resolve, 6000));
 
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0.0,
-    maxTokens: 2500,
-    timeout: 45000,
-    maxRetries: 0,
-  });
-
-  const structuredLlm = llm.withStructuredOutput(CompetitiveSchema, {
-    method: "jsonSchema",
-  });
-
   const webContext = formatWebResearchContext(state);
   const companyName = state.companyProfile?.name ?? state.companyName;
   const profile = state.companyProfile;
@@ -90,10 +74,11 @@ export async function analyzeCompetitiveNode(
     `Rate the moat as wide, narrow, none, or unclear with specific justification.`;
 
   try {
-    const result = await structuredLlm.invoke([
+    const prompt = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ], { signal: AbortSignal.timeout(45000) });
+    ];
+    const result = await invokeStructuredLLM(prompt, CompetitiveSchema, { temperature: 0 });
 
     return { competitiveAnalysis: result };
   } catch (err) {

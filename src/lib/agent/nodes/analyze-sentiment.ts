@@ -10,7 +10,7 @@
  * If no news was found, the node still produces a valid output noting the gap.
  */
 
-import { ChatOpenAI } from "@langchain/openai";
+import { invokeStructuredLLM } from "../llm";
 import { AgentStateType } from "../state";
 import { SentimentSchema } from "../schemas";
 
@@ -52,22 +52,6 @@ export async function analyzeSentimentNode(
   // Stagger request by 3s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
   await new Promise((resolve) => setTimeout(resolve, 3000));
 
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0.0,
-    maxTokens: 1500,
-    timeout: 45000,
-    maxRetries: 0,
-  });
-
-  const structuredLlm = llm.withStructuredOutput(SentimentSchema, {
-    method: "jsonSchema",
-  });
-
   const newsContext = formatNewsContext(state);
   const companyName = state.companyProfile?.name ?? state.companyName;
 
@@ -84,10 +68,11 @@ export async function analyzeSentimentNode(
     `Calibrate the sentimentScore numerically (0=very negative, 50=neutral, 100=very positive).`;
 
   try {
-    const result = await structuredLlm.invoke([
+    const prompt = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ], { signal: AbortSignal.timeout(45000) });
+    ];
+    const result = await invokeStructuredLLM(prompt, SentimentSchema, { temperature: 0 });
 
     return { sentimentAnalysis: result };
   } catch (err) {

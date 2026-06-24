@@ -12,17 +12,7 @@
 import { AgentStateType } from "../state";
 
 async function verifyIdentity(companyName: string, website: string): Promise<boolean> {
-  const { ChatOpenAI } = await import("@langchain/openai");
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.3-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0,
-    maxTokens: 10,
-    maxRetries: 0,
-  });
+  const { invokeStringLLM } = await import("../llm");
 
   const prompt = `You are a strict validation layer. The user entered the company name "${companyName}" and the official website "${website}". 
 Do they plausibly match the same entity? For example:
@@ -36,8 +26,8 @@ Do they plausibly match the same entity? For example:
 Reply ONLY with "YES" or "NO".`;
 
   try {
-    const response = await llm.invoke(prompt);
-    const text = (response.content as string).trim().toUpperCase();
+    const response = await invokeStringLLM(prompt, { maxTokens: 10, temperature: 0 });
+    const text = response.toUpperCase();
     console.log(`[verify_identity] LLM verification for "${companyName}" & "${website}": ${text}`);
     return text.includes("YES");
   } catch (error) {
@@ -74,17 +64,7 @@ async function tavilyResolveTicker(companyName: string, website?: string): Promi
   console.log("[resolve_ticker] Tavily content length:", content.length);
   console.log("[resolve_ticker] Tavily first 200 chars:", content.slice(0, 200));
 
-  const { ChatOpenAI } = await import("@langchain/openai");
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.3-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0,
-    maxTokens: 50,
-    maxRetries: 0,
-  });
+  const { invokeStringLLM } = await import("../llm");
 
   const prompt = `Extract up to 3 stock ticker symbols for the company operating at the website: ${website}. The user referred to them as "${companyName}", but the website is the absolute source of truth. Rely on the website URL over the provided name. 
 CRITICAL RULES:
@@ -98,8 +78,8 @@ ${content.slice(0, 2000)}`;
 
   let candidates: string[] = [];
   try {
-    const response = await llm.invoke(prompt);
-    const contentStr = (response.content as string).trim();
+    const response = await invokeStringLLM(prompt, { maxTokens: 50, temperature: 0 });
+    const contentStr = response;
     console.log("[resolve_ticker] LLM response:", contentStr);
     // Parse JSON array
     const match = contentStr.match(/\[[\s\S]*\]/);

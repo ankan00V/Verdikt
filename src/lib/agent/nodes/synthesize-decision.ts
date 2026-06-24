@@ -18,7 +18,7 @@
  * decision output to the analysis outputs and verify the logic holds.
  */
 
-import { ChatOpenAI } from "@langchain/openai";
+import { invokeStructuredLLM } from "../llm";
 import { AgentStateType } from "../state";
 import { DecisionSchema } from "../schemas";
 
@@ -59,22 +59,6 @@ export async function synthesizeDecisionNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
 
-
-  const llm = new ChatOpenAI({
-    model: "meta/llama-3.1-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
-    configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-    },
-    temperature: 0.0, // Strictly deterministic
-    maxTokens: 2500,
-    timeout: 45000,
-    maxRetries: 0,
-  });
-
-  const structuredLlm = llm.withStructuredOutput(DecisionSchema, {
-    method: "jsonSchema",
-  });
 
   const companyName = state.companyProfile?.name ?? state.companyName;
 
@@ -117,10 +101,11 @@ export async function synthesizeDecisionNode(
     `Your reasoning must explicitly connect to what each prior analysis found.`;
 
   try {
-    const result = await structuredLlm.invoke([
+    const prompt = [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
-    ], { signal: AbortSignal.timeout(40000) });
+    ];
+    const result = await invokeStructuredLLM(prompt, DecisionSchema, { temperature: 0 });
 
     return { decision: result };
   } catch (err) {
