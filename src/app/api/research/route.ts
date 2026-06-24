@@ -134,6 +134,10 @@ export async function POST(req: NextRequest): Promise<Response> {
 
           if (!nodeName || !NODE_LABELS[nodeName]) continue;
 
+          // Filter out internal runnables (like LLM calls) that inherit the langgraph_node tag.
+          // We only want the events where the runnable name exactly matches the node name.
+          if (event.name !== nodeName) continue;
+
           // Emit node_start on first on_chain_start for this node
           if (event.event === "on_chain_start" && !startedNodes.has(nodeName)) {
             startedNodes.add(nodeName);
