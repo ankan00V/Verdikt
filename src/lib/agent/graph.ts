@@ -78,19 +78,17 @@ export function buildGraph() {
     .addEdge("resolve_ticker", "fetch_web_research")
 
     // Fan-in: all three parallel fetch nodes → gather_data (convergence point)
-    .addEdge("fetch_financials", "gather_data")
-    .addEdge("fetch_news", "gather_data")
-    .addEdge("fetch_web_research", "gather_data")
-
-    // Fan-out: parallelize analysis nodes to prevent Vercel 60s timeout
+    // CRITICAL FIX: Pass as an array to wait for all three, rather than triggering gather_data 3 separate times
+    .addEdge(["fetch_financials", "fetch_news", "fetch_web_research"], "gather_data")
+    
+    // Fan-out: from gather_data to parallel analysis nodes
     .addEdge("gather_data", "analyze_fundamentals")
     .addEdge("gather_data", "analyze_sentiment")
     .addEdge("gather_data", "analyze_competitive_position")
 
-    // Fan-in: all three analysis nodes → synthesize_decision
-    .addEdge("analyze_fundamentals", "synthesize_decision")
-    .addEdge("analyze_sentiment", "synthesize_decision")
-    .addEdge("analyze_competitive_position", "synthesize_decision")
+    // Fan-in: all three parallel analysis nodes → synthesize_decision
+    // CRITICAL FIX: Pass as an array to wait for all three, rather than triggering synthesize_decision 3 separate times
+    .addEdge(["analyze_fundamentals", "analyze_sentiment", "analyze_competitive_position"], "synthesize_decision")
 
     // Terminal edge
     .addEdge("synthesize_decision", END);
