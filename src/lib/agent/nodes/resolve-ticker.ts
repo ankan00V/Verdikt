@@ -148,15 +148,15 @@ export async function resolveTickerNode(
   const { companyName } = state;
   let ticker: string | null = null;
 
-  try {
-    // Step 1: Strict AI Identity Verification
-    if (state.website) {
-      const isMatch = await verifyIdentity(companyName.trim(), state.website.trim());
-      if (!isMatch) {
-        throw new Error(`Verification failed: Your company name and official website do not match. Please ensure you have entered the correct official URL for this company.`);
-      }
+  // Step 1: Strict AI Identity Verification
+  if (state.website) {
+    const isMatch = await verifyIdentity(companyName.trim(), state.website.trim());
+    if (!isMatch) {
+      throw new Error(`Verification failed: Your company name and official website do not match. Please ensure you have entered the correct official URL for this company.`);
     }
+  }
 
+  try {
     // Step 2: Resolve ticker using Tavily
     ticker = await tavilyResolveTicker(companyName.trim(), state.website);
 
