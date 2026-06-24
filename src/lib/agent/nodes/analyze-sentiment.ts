@@ -20,10 +20,10 @@ import { SentimentSchema } from "../schemas";
 
 function formatNewsContext(state: AgentStateType): string {
   const { newsResults, ticker, companyProfile } = state;
-  const companyName = companyProfile?.name ?? ticker ?? "the company";
+  const companyName = companyProfile?.name ?? state.companyName;
 
   if (!newsResults || newsResults.length === 0) {
-    return `No recent news articles were retrieved for ${companyName} (${ticker}). ` +
+    return `No recent news articles were retrieved for ${companyName}. ` +
       "This may be due to low media coverage, a search failure, or the company being less covered by financial media.";
   }
 
@@ -47,9 +47,7 @@ function formatNewsContext(state: AgentStateType): string {
 export async function analyzeSentimentNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  if (!state.ticker) {
-    return { errors: ["Sentiment analysis skipped — no ticker resolved"] };
-  }
+
 
   // Stagger request by 3s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
   await new Promise((resolve) => setTimeout(resolve, 3000));
@@ -71,7 +69,7 @@ export async function analyzeSentimentNode(
   });
 
   const newsContext = formatNewsContext(state);
-  const companyName = state.companyProfile?.name ?? state.ticker;
+  const companyName = state.companyProfile?.name ?? state.companyName;
 
   const systemPrompt =
     `You are a financial news analyst specializing in sentiment analysis for investment research. ` +
@@ -80,7 +78,7 @@ export async function analyzeSentimentNode(
     `Base your analysis ONLY on what is in the provided articles — do not add external information.`;
 
   const userPrompt =
-    `Analyze the sentiment and recent news momentum for ${companyName} (${state.ticker}).\n\n` +
+    `Analyze the sentiment and recent news momentum for ${companyName} (${state.ticker || "Private Company"}).\n\n` +
     `${newsContext}\n\n` +
     `Identify controversies, recent developments, and the overall tone of coverage. ` +
     `Calibrate the sentimentScore numerically (0=very negative, 50=neutral, 100=very positive).`;

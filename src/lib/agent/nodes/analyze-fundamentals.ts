@@ -83,9 +83,7 @@ function formatFinancialContext(state: AgentStateType): string {
 export async function analyzeFundamentalsNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  if (!state.ticker) {
-    return { errors: ["Fundamentals analysis skipped — no ticker resolved"] };
-  }
+
 
   const llm = new ChatOpenAI({
     model: "meta/llama-3.1-70b-instruct",

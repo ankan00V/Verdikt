@@ -58,9 +58,7 @@ function compressFindingsForSynthesis(state: AgentStateType) {
 export async function synthesizeDecisionNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  if (!state.ticker) {
-    return { errors: ["Decision synthesis skipped — no ticker resolved"] };
-  }
+
 
   const llm = new ChatOpenAI({
     model: "meta/llama-3.1-70b-instruct",
@@ -78,7 +76,7 @@ export async function synthesizeDecisionNode(
     method: "jsonSchema",
   });
 
-  const companyName = state.companyProfile?.name ?? state.ticker;
+  const companyName = state.companyProfile?.name ?? state.companyName;
 
   // Inject all prior analysis as structured JSON so the model synthesizes
   // rather than re-derives conclusions

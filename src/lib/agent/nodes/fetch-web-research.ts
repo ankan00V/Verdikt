@@ -21,17 +21,13 @@ export async function fetchWebResearchNode(
 ): Promise<Partial<AgentStateType>> {
   const { ticker, companyProfile } = state;
 
-  if (!ticker) {
-    return { errors: ["Web research skipped — no ticker resolved"] };
-  }
-
-  const companyName = state.companyProfile?.name ?? state.ticker ?? state.companyName;
+  const companyName = state.companyProfile?.name ?? state.companyName;
   const website = state.website;
   const sector = companyProfile?.sector ?? "";
 
   // Query targets business fundamentals rather than breaking news, formulated as a question for better Tavily results
   // Emphasize the website as the main anchor
-  const query = `What is the business model, competitive advantage, and market position of the company operating at ${website} (ticker: ${ticker}, name: "${companyName}") in the ${sector} sector?`;
+  const query = `What is the business model, competitive advantage, and market position of the company operating at ${website} (name: "${companyName}")${ticker ? ` with ticker ${ticker}` : ''} in the ${sector} sector?`;
 
   try {
     const tool = new TavilySearch({
@@ -61,7 +57,7 @@ export async function fetchWebResearchNode(
 
     // Post-filter to remove noise: article must actually mention the ticker or company name
     const companyFirstWord = companyName.split(" ")[0].toLowerCase();
-    const searchTarget = ticker.toLowerCase();
+    const searchTarget = ticker ? ticker.toLowerCase() : companyFirstWord;
     
     const filteredResults = results.filter(r => {
       const text = `${r.title} ${r.content}`.toLowerCase();
@@ -75,7 +71,7 @@ export async function fetchWebResearchNode(
     return { webResearchResults: filteredResults };
   } catch (err) {
     console.error("[fetch_web_research] Error:", err);
-    console.warn(`[fetch_web_research] Tavily failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
+    console.warn(`[fetch_web_research] Tavily failed for ${companyName}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
       await new Promise(resolve => setTimeout(resolve, 4000));
       const { ChatOpenAI } = await import("@langchain/openai");
@@ -97,7 +93,7 @@ Only output the JSON array. Do not include markdown.`;
       const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
       const fallbackWeb = JSON.parse(text) as SearchResult[];
       const companyFirstWord = companyName.split(" ")[0].toLowerCase();
-      const searchTarget = ticker.toLowerCase();
+      const searchTarget = ticker ? ticker.toLowerCase() : companyFirstWord;
       const filteredFallback = fallbackWeb.filter(r => {
         const txt = `${r.title} ${r.content}`.toLowerCase();
         return txt.includes(searchTarget) || txt.includes(companyFirstWord);

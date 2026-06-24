@@ -20,11 +20,11 @@ import { CompetitiveSchema } from "../schemas";
 
 function formatWebResearchContext(state: AgentStateType): string {
   const { webResearchResults, companyProfile, ticker } = state;
-  const companyName = companyProfile?.name ?? ticker ?? "the company";
+  const companyName = companyProfile?.name ?? state.companyName;
 
   if (!webResearchResults || webResearchResults.length === 0) {
     return (
-      `No web research results were retrieved for ${companyName} (${ticker}). ` +
+      `No web research results were retrieved for ${companyName}. ` +
       "Competitive analysis will rely on company profile data only."
     );
   }
@@ -47,9 +47,7 @@ function formatWebResearchContext(state: AgentStateType): string {
 export async function analyzeCompetitiveNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
-  if (!state.ticker) {
-    return { errors: ["Competitive analysis skipped — no ticker resolved"] };
-  }
+
 
   // Stagger request by 6s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
   await new Promise((resolve) => setTimeout(resolve, 6000));
@@ -71,7 +69,7 @@ export async function analyzeCompetitiveNode(
   });
 
   const webContext = formatWebResearchContext(state);
-  const companyName = state.companyProfile?.name ?? state.ticker;
+  const companyName = state.companyProfile?.name ?? state.companyName;
   const profile = state.companyProfile;
 
   const systemPrompt =
@@ -83,7 +81,7 @@ export async function analyzeCompetitiveNode(
     `but clearly distinguish between what the sources say and what you're inferring.`;
 
   const userPrompt =
-    `Analyze the competitive position of ${companyName} (${state.ticker}).\n\n` +
+    `Analyze the competitive position of ${companyName} (${state.ticker || "Private Company"}).\n\n` +
     (profile
       ? `Company Profile:\nSector: ${profile.sector}\nIndustry: ${profile.industry}\nCountry: ${profile.country}\n\n`
       : "") +

@@ -20,13 +20,9 @@ export async function fetchNewsNode(
 ): Promise<Partial<AgentStateType>> {
   const { ticker, companyProfile } = state;
 
-  if (!ticker) {
-    return { errors: ["News search skipped — no ticker resolved"] };
-  }
-
   // Build a targeted query: use both company name and ticker for precision
-  const companyName = companyProfile?.name ?? state.companyName ?? ticker;
-  const query = `${companyName} ${ticker} stock news earnings 2025 2026`;
+  const companyName = companyProfile?.name ?? state.companyName;
+  const query = ticker ? `${companyName} ${ticker} stock news earnings 2025 2026` : `${companyName} company news 2025 2026`;
 
   try {
     const tool = new TavilySearch({
@@ -61,7 +57,7 @@ export async function fetchNewsNode(
 
     // Post-filter to remove noise: article must mention ticker or company name
     const companyFirstWord = companyName.split(" ")[0].toLowerCase();
-    const searchTarget = ticker.toLowerCase();
+    const searchTarget = ticker ? ticker.toLowerCase() : companyFirstWord;
     
     const filteredResults = results.filter(r => {
       const text = `${r.title} ${r.content}`.toLowerCase();
@@ -75,7 +71,7 @@ export async function fetchNewsNode(
     return { newsResults: filteredResults };
   } catch (err) {
     console.error("[fetch_news] Error:", err);
-    console.warn(`[fetch_news] Tavily failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
+    console.warn(`[fetch_news] Tavily failed for ${companyName}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const { ChatOpenAI } = await import("@langchain/openai");
@@ -97,7 +93,7 @@ Only output the JSON array. Do not include markdown.`;
       const text = (response.content as string).trim().replace(/```json/g, "").replace(/```/g, "");
       const fallbackNews = JSON.parse(text) as SearchResult[];
       const companyFirstWord = companyName.split(" ")[0].toLowerCase();
-      const searchTarget = ticker.toLowerCase();
+      const searchTarget = ticker ? ticker.toLowerCase() : companyFirstWord;
       const filteredFallback = fallbackNews.filter(r => {
         const txt = `${r.title} ${r.content}`.toLowerCase();
         return txt.includes(searchTarget) || txt.includes(companyFirstWord);
