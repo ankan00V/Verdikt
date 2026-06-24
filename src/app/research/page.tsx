@@ -86,7 +86,7 @@ export default function ResearchPage() {
                 <input
                   ref={inputRef}
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => setInput(e.target.value.toUpperCase())}
                   placeholder="Enter a company name…"
                   className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-5 py-3.5 text-base text-white placeholder-white/25 outline-none focus:border-white/25 focus:bg-white/[0.06] transition-all font-medium"
                 />
