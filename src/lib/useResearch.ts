@@ -168,6 +168,19 @@ export function useResearch() {
           }
         }
       }
+
+      // If the stream closed but we didn't receive a done or error event, it timed out (e.g., Vercel 60s limit)
+      setState((prev) => {
+        if (!prev) return prev;
+        if (prev.status !== "complete" && prev.status !== "error") {
+          return {
+            ...prev,
+            status: "error",
+            error: "Connection lost or timed out. The analysis took longer than the server limit allowed.",
+          };
+        }
+        return prev;
+      });
     } catch (error: any) {
       if (error.name === "AbortError") return;
       console.error("Research stream error", error);
