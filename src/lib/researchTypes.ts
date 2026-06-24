@@ -43,6 +43,7 @@ export interface ResearchState {
   };
   startedAt: Date;
   status: "running" | "complete" | "error";
+  error?: string;
 }
 
 export function createInitialState(company: string): ResearchState {

@@ -43,6 +43,8 @@ export default function ResearchPage() {
     (f) => f.nodeId === selectedFindingId
   ) ?? null;
 
+  const globalError = state?.error;
+
   return (
     <div className="relative min-h-screen bg-[#0B0E11] text-white flex flex-col overflow-hidden">
       {/* Canvas background */}
@@ -162,7 +164,14 @@ export default function ResearchPage() {
               </div>
             </div>
 
-            {/* 3-pane panel */}
+            {/* Global Error Banner */}
+            {globalError && (
+              <div className="mx-1 px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3 shadow-lg">
+                <span className="text-lg">⚠</span>
+                <span className="font-medium">{globalError}</span>
+              </div>
+            )}
+
             {/* 3-pane panel */}
             <div className="flex-1 overflow-y-auto md:overflow-hidden rounded-2xl border border-white/10 liquid-glass grid grid-cols-1 md:grid-cols-[1fr_2fr] lg:grid-cols-[1fr_1.4fr_1.6fr]">
               {/* Left — node tracker */}

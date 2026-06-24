@@ -91,7 +91,7 @@ export function useResearch() {
 
               if (parsed.type === "error") {
                 console.error("Server sent error:", parsed.message);
-                setState((prev) => prev ? { ...prev, status: "error" } : prev);
+                setState((prev) => prev ? { ...prev, status: "error", error: parsed.message } : prev);
                 break;
               }
 
