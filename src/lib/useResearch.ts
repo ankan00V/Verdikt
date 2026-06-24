@@ -62,6 +62,11 @@ export function useResearch() {
         signal: abortControllerRef.current.signal,
       });
 
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to start research");
+      }
+
       if (!res.body) throw new Error("No response body");
 
       const reader = res.body.getReader();
@@ -184,7 +189,7 @@ export function useResearch() {
     } catch (error: any) {
       if (error.name === "AbortError") return;
       console.error("Research stream error", error);
-      setState((prev) => prev ? { ...prev, status: "error" } : prev);
+      setState((prev) => prev ? { ...prev, status: "error", error: error.message || "An unexpected error occurred." } : prev);
     }
   }, []);
 
