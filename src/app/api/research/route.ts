@@ -144,6 +144,13 @@ export async function POST(req: NextRequest): Promise<Response> {
             });
           }
 
+          // Handle node failures immediately
+          if (event.event === "on_chain_error") {
+            const error = event.data?.error;
+            // Throw it so the outer catch block handles it and closes the stream
+            throw error || new Error(`Error in node ${nodeName}`);
+          }
+
           // Emit node_complete with the node's output on on_chain_end
           if (event.event === "on_chain_end") {
             const output = event.data?.output;

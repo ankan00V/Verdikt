@@ -154,12 +154,14 @@ export default function ResearchPage() {
               <div className="flex items-center gap-2">
                 <span
                   className={`text-[10px] font-mono px-2.5 py-1 rounded-full border ${
-                    isPipelineComplete
+                    state.status === "error"
+                      ? "border-red-500/30 text-red-400 bg-red-500/5"
+                      : isPipelineComplete
                       ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5"
                       : "border-amber-500/30 text-amber-400 bg-amber-500/5"
                   }`}
                 >
-                  {isPipelineComplete ? "Complete" : "Running…"}
+                  {state.status === "error" ? "Error" : isPipelineComplete ? "Complete" : "Running…"}
                 </span>
               </div>
             </div>
