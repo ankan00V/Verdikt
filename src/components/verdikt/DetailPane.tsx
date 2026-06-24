@@ -119,13 +119,14 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
     case "resolve_ticker": {
       const p = output.companyProfile || latestProfile;
       const t = output.ticker || output.companyProfile?.ticker || latestProfile?.ticker;
+      const isPrivate = !t;
       return (
         <div className="flex flex-col gap-4">
           <div className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-4">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-4">
                 <span className="text-xs text-white/40 font-mono w-20">Ticker:</span>
-                <span className="text-sm font-semibold">{t || "N/A"}</span>
+                <span className="text-sm font-semibold">{t || "Unlisted"}</span>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs text-white/40 font-mono w-20">Company:</span>
@@ -133,10 +134,21 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs text-white/40 font-mono w-20">Exchange:</span>
-                <span className="text-sm">{p?.exchange || "Pending details"}</span>
+                <span className="text-sm">{p?.exchange || (isPrivate ? "Not Applicable" : "Pending details")}</span>
               </div>
             </div>
           </div>
+          {isPrivate && (
+            <div className="bg-[#C9A227]/10 border border-[#C9A227]/30 rounded-xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[#C9A227]">⚠</span>
+                <span className="text-sm font-semibold text-[#C9A227]">Unlisted Entity</span>
+              </div>
+              <p className="text-xs text-[#C9A227]/90 leading-relaxed">
+                This entity does not trade on a public stock exchange. Verdikt will proceed with private market analysis using alternative data sources.
+              </p>
+            </div>
+          )}
         </div>
       );
     }
@@ -232,6 +244,24 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
     }
     case "analyze_fundamentals": {
       const f = output.fundamentalsAnalysis || {};
+      const isMissing = !f.revenueGrowthAssessment && !f.marginQuality && !f.balanceSheetHealth;
+      
+      if (f.overallScore === "unavailable" || isMissing) {
+        return (
+          <div className="flex flex-col gap-4">
+            <div className="bg-[#C9A227]/10 border border-[#C9A227]/30 rounded-xl p-4 flex flex-col gap-2">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[#C9A227]">⚠</span>
+                <span className="text-sm font-semibold text-[#C9A227]">Private Company</span>
+              </div>
+              <p className="text-xs text-[#C9A227]/90 leading-relaxed">
+                Fundamental growth and balance sheet metrics are restricted for private companies. Verdikt relies on sentiment and competitive positioning to form its verdict instead.
+              </p>
+            </div>
+          </div>
+        );
+      }
+      
       return (
         <div className="flex flex-col">
           <Section title="GROWTH" content={f.revenueGrowthAssessment} />
