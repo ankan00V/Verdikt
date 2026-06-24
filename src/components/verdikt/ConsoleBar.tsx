@@ -2,12 +2,24 @@
 
 import { useEffect, useState } from "react";
 
+import { X, Minus, Maximize2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+
 interface ConsoleBarProps {
   startedAt?: Date | null;
 }
 
 export default function ConsoleBar({ startedAt }: ConsoleBarProps) {
   const [display, setDisplay] = useState("");
+  const router = useRouter();
+
+  const handleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!startedAt) {
@@ -46,11 +58,25 @@ export default function ConsoleBar({ startedAt }: ConsoleBarProps) {
 
   return (
     <div className="h-10 bg-black/40 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4">
-      {/* Left: neutral dots (NOT traffic-light — not a desktop app) */}
-      <div className="flex items-center gap-1.5">
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
-        <div className="w-2.5 h-2.5 rounded-full bg-white/20" />
+      {/* Left: macOS traffic lights */}
+      <div className="flex items-center gap-2 group">
+        <button 
+          onClick={() => router.push("/")}
+          className="w-3 h-3 rounded-full bg-[#FF5F56] flex items-center justify-center transition-all"
+        >
+          <X className="w-2 h-2 text-black/60 opacity-0 group-hover:opacity-100" strokeWidth={3} />
+        </button>
+        <button 
+          className="w-3 h-3 rounded-full bg-[#FFBD2E] flex items-center justify-center transition-all cursor-default"
+        >
+          <Minus className="w-2 h-2 text-black/60 opacity-0 group-hover:opacity-100" strokeWidth={3} />
+        </button>
+        <button 
+          onClick={handleFullscreen}
+          className="w-3 h-3 rounded-full bg-[#27C93F] flex items-center justify-center transition-all"
+        >
+          <Maximize2 className="w-2 h-2 text-black/60 opacity-0 group-hover:opacity-100" strokeWidth={3} />
+        </button>
       </div>
 
       {/* Center label */}
