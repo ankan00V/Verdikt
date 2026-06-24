@@ -89,8 +89,8 @@ export async function fetchFinancialsNode(
       };
     }
 
-    // 2. Map Income Statements
-    const rawIncome = quote.incomeStatementHistory?.incomeStatementHistory || [];
+    // 2. Map Income Statements (Limit to last 3 years to save LLM context/processing time)
+    const rawIncome = (quote.incomeStatementHistory?.incomeStatementHistory || []).slice(0, 3);
     const fd = (quote.financialData || {}) as any;
     
     incomeStatements = rawIncome.map((d, i) => {

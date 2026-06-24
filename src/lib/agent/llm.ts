@@ -5,6 +5,7 @@ import { z } from "zod";
 export interface LLMOptions {
   temperature?: number;
   maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export function createLLMs(options: LLMOptions = {}) {
@@ -42,7 +43,18 @@ export async function invokeStringLLM(
 ): Promise<string> {
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const llm = fallbackLLM ? primaryLLM.withFallbacks({ fallbacks: [fallbackLLM] }) : primaryLLM;
-  const response = await llm.invoke(prompt);
+  
+  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
+  const timeoutMs = options.timeoutMs || 25000;
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`LLM API request timed out after ${timeoutMs}ms`)), timeoutMs)
+  );
+
+  const response = await Promise.race([
+    llm.invoke(prompt),
+    timeoutPromise
+  ]);
+  
   return (response.content as string).trim();
 }
 
@@ -54,11 +66,17 @@ export async function invokeStructuredLLM<T>(
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const structuredPrimary = primaryLLM.withStructuredOutput(schema);
   
+  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
+  const timeoutMs = options.timeoutMs || 25000;
+  const timeoutPromise = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error(`LLM API request timed out after ${timeoutMs}ms`)), timeoutMs)
+  );
+  
+  let llm = structuredPrimary;
   if (fallbackLLM) {
     const structuredFallback = fallbackLLM.withStructuredOutput(schema);
-    const llm = structuredPrimary.withFallbacks({ fallbacks: [structuredFallback] });
-    return (await llm.invoke(prompt)) as T;
+    llm = structuredPrimary.withFallbacks({ fallbacks: [structuredFallback] });
   }
   
-  return (await structuredPrimary.invoke(prompt)) as T;
+  return (await Promise.race([llm.invoke(prompt), timeoutPromise])) as T;
 }

@@ -45,7 +45,7 @@ function formatFinancialContext(state: AgentStateType): string {
     n === null ? "N/A" : `${(n * 100).toFixed(1)}%`;
 
   const incomeLines = incomeStatements
-    .slice(0, 2)
+    .slice(0, 3)
     .map(
       (stmt) =>
         `  ${stmt.date}: Revenue=${formatNum(stmt.revenue, "$")}, ` +
