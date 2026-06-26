@@ -44,18 +44,24 @@ export async function invokeStringLLM(
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const llm = fallbackLLM ? primaryLLM.withFallbacks({ fallbacks: [fallbackLLM] }) : primaryLLM;
   
-  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
+  // Strict kill-switch: abort the underlying fetch so LangGraph doesn't wait for dangling promises
   const timeoutMs = options.timeoutMs || 25000;
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`LLM API request timed out after ${timeoutMs}ms`)), timeoutMs)
-  );
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutMs);
 
-  const response = await Promise.race([
-    llm.invoke(prompt),
-    timeoutPromise
-  ]);
-  
-  return (response.content as string).trim();
+  try {
+    const response = await llm.invoke(prompt, { signal: controller.signal });
+    return (response.content as string).trim();
+  } catch (error: any) {
+    if (error.name === "AbortError" || controller.signal.aborted) {
+      throw new Error(`LLM API request timed out after ${timeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function invokeStructuredLLM<T>(
@@ -65,12 +71,7 @@ export async function invokeStructuredLLM<T>(
 ): Promise<T> {
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const structuredPrimary = primaryLLM.withStructuredOutput(schema);
-  
-  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
-  const timeoutMs = options.timeoutMs || 25000;
-  const timeoutPromise = new Promise<never>((_, reject) =>
-    setTimeout(() => reject(new Error(`LLM API request timed out after ${timeoutMs}ms`)), timeoutMs)
-  );
+
   
   let llm = structuredPrimary;
   if (fallbackLLM) {
@@ -78,5 +79,21 @@ export async function invokeStructuredLLM<T>(
     llm = structuredPrimary.withFallbacks({ fallbacks: [structuredFallback] });
   }
   
-  return (await Promise.race([llm.invoke(prompt), timeoutPromise])) as T;
+  // Strict kill-switch: abort the underlying fetch so LangGraph doesn't wait for dangling promises
+  const timeoutValueMs = options.timeoutMs || 25000;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, timeoutValueMs);
+
+  try {
+    return (await llm.invoke(prompt, { signal: controller.signal })) as T;
+  } catch (error: any) {
+    if (error.name === "AbortError" || controller.signal.aborted) {
+      throw new Error(`LLM API request timed out after ${timeoutValueMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
