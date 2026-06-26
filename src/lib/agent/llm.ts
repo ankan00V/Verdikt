@@ -44,8 +44,9 @@ export async function invokeStringLLM(
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const llm = fallbackLLM ? primaryLLM.withFallbacks({ fallbacks: [fallbackLLM] }) : primaryLLM;
   
-  // Strict kill-switch: abort the underlying fetch so LangGraph doesn't wait for dangling promises
-  const timeoutMs = options.timeoutMs || 25000;
+  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
+  // Increased from 25s to 50s because some parallel nodes have a 6s stagger
+  const timeoutMs = options.timeoutMs || 50000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();

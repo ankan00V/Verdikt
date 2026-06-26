@@ -19,13 +19,34 @@ export class UpstashSaver extends MemorySaver {
       try {
         const data = await redis.get<any>(`langgraph_thread_${threadId}`);
         if (data) {
-          // Restore storage for this thread
-          this.storage[threadId] = data.storage || Object.create(null);
+          // Restore storage for this thread (decode base64 back to Uint8Array)
+          const restoredStorage = Object.create(null);
+          if (data.storage) {
+            for (const [ns, nsRecord] of Object.entries(data.storage)) {
+              restoredStorage[ns] = Object.create(null);
+              for (const [checkpointId, tuple] of Object.entries(nsRecord as any)) {
+                restoredStorage[ns][checkpointId] = [
+                  new Uint8Array(Buffer.from((tuple as any)[0], "base64")),
+                  new Uint8Array(Buffer.from((tuple as any)[1], "base64")),
+                  (tuple as any)[2]
+                ];
+              }
+            }
+          }
+          this.storage[threadId] = restoredStorage;
           
           // Restore writes (writes are globally indexed in MemorySaver, so we merge them)
           if (data.writes) {
-            for (const key of Object.keys(data.writes)) {
-              this.writes[key] = data.writes[key];
+            for (const [outerKey, innerRecord] of Object.entries(data.writes)) {
+              const decodedInner = Object.create(null);
+              for (const [innerKey, tuple] of Object.entries(innerRecord as any)) {
+                decodedInner[innerKey] = [
+                  (tuple as any)[0],
+                  (tuple as any)[1],
+                  new Uint8Array(Buffer.from((tuple as any)[2], "base64"))
+                ];
+              }
+              this.writes[outerKey] = decodedInner;
             }
           }
         }
@@ -44,19 +65,45 @@ export class UpstashSaver extends MemorySaver {
     try {
       const storageData = this.storage[threadId];
       
-      // Filter writes to only those belonging to this thread
+      // MemorySaver uses Uint8Array for serialized checkpoints. 
+      // We MUST convert these to Base64 before sending to Upstash Redis, otherwise 
+      // JSON.stringify will turn them into huge objects and crash Node's Buffer.concat
+      // when LangGraph tries to decode them later.
+      const encodedStorage: Record<string, Record<string, [string, string, string | undefined]>> = {};
+      if (storageData) {
+        for (const [ns, nsRecord] of Object.entries(storageData)) {
+          encodedStorage[ns] = {};
+          for (const [checkpointId, tuple] of Object.entries(nsRecord)) {
+            encodedStorage[ns][checkpointId] = [
+              Buffer.from(tuple[0]).toString("base64"),
+              Buffer.from(tuple[1]).toString("base64"),
+              tuple[2]
+            ];
+          }
+        }
+      }
+      
+      // Filter writes to only those belonging to this thread and encode them
       // MemorySaver keys are JSON stringified arrays: ["threadId", "namespace", "checkpointId"]
-      const writesData: any = {};
-      for (const key of Object.keys(this.writes)) {
-        if (key.startsWith(`["${threadId}"`)) {
-          writesData[key] = this.writes[key];
+      const encodedWrites: Record<string, Record<string, [string, string, string]>> = {};
+      for (const [outerKey, innerRecord] of Object.entries(this.writes)) {
+        if (outerKey.startsWith(`["${threadId}"`)) {
+          const encodedInner: Record<string, [string, string, string]> = {};
+          for (const [innerKey, tuple] of Object.entries(innerRecord)) {
+            encodedInner[innerKey] = [
+              tuple[0],
+              tuple[1],
+              Buffer.from(tuple[2]).toString("base64")
+            ];
+          }
+          encodedWrites[outerKey] = encodedInner;
         }
       }
       
       // Store state for 1 hour (3600 seconds) to prevent DB bloat
       await redis.set(
         `langgraph_thread_${threadId}`, 
-        { storage: storageData, writes: writesData },
+        { storage: encodedStorage, writes: encodedWrites },
         { ex: 3600 }
       );
     } catch (err) {
