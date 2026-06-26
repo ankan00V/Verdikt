@@ -35,31 +35,35 @@ export function useResearch() {
   const [selectedFindingId, setSelectedFindingId] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const startResearch = useCallback(async (company: string, website: string) => {
-    abortControllerRef.current?.abort();
-    abortControllerRef.current = new AbortController();
+  const startResearch = useCallback(async (company: string, website: string, activeThreadId?: string, retryCount: number = 0) => {
+    if (retryCount === 0) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = new AbortController();
 
-    const initial = createInitialState(company);
-    setState(initial);
-    setSelectedFindingId(null);
+      const initial = createInitialState(company);
+      setState(initial);
+      setSelectedFindingId(null);
 
-    // Set first node to in-progress immediately
-    setState((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        nodes: prev.nodes.map((n) =>
-          n.name === "resolve_ticker" ? { ...n, status: "in-progress" } : n
-        ),
-      };
-    });
+      // Set first node to in-progress immediately
+      setState((prev) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          nodes: prev.nodes.map((n) =>
+            n.name === "resolve_ticker" ? { ...n, status: "in-progress" } : n
+          ),
+        };
+      });
+    }
 
     try {
+      let currentThreadId = activeThreadId;
+
       const res = await fetch("/api/research", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ company, website }),
-        signal: abortControllerRef.current.signal,
+        body: JSON.stringify({ company, website, thread_id: currentThreadId }),
+        signal: abortControllerRef.current?.signal,
       });
 
       if (!res.ok) {
@@ -72,6 +76,7 @@ export function useResearch() {
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let buffer = "";
+      let streamEndedNormally = false;
 
       while (true) {
         const { done, value } = await reader.read();
@@ -89,12 +94,19 @@ export function useResearch() {
             try {
               const parsed = JSON.parse(dataStr);
               
+              if (parsed.type === "thread_created") {
+                currentThreadId = parsed.thread_id;
+                continue;
+              }
+
               if (parsed.type === "done" || parsed.done) {
+                streamEndedNormally = true;
                 setState((prev) => prev ? { ...prev, status: "complete" } : prev);
                 break;
               }
 
               if (parsed.type === "error") {
+                streamEndedNormally = true;
                 console.error("Server sent error:", parsed.message);
                 setState((prev) => prev ? { ...prev, status: "error", error: parsed.message } : prev);
                 break;
@@ -175,17 +187,27 @@ export function useResearch() {
       }
 
       // If the stream closed but we didn't receive a done or error event, it timed out (e.g., Vercel 60s limit)
-      setState((prev) => {
-        if (!prev) return prev;
-        if (prev.status !== "complete" && prev.status !== "error") {
-          return {
-            ...prev,
-            status: "error",
-            error: "Connection lost or timed out. The analysis took longer than the server limit allowed.",
-          };
+      if (!streamEndedNormally) {
+        if (retryCount < 10) {
+          console.log(`[Research] Connection lost. Auto-reconnecting to thread ${currentThreadId}... (Retry ${retryCount + 1}/10)`);
+          setTimeout(() => {
+            startResearch(company, website, currentThreadId, retryCount + 1);
+          }, 2000);
+          return;
+        } else {
+          setState((prev) => {
+            if (!prev) return prev;
+            if (prev.status !== "complete" && prev.status !== "error") {
+              return {
+                ...prev,
+                status: "error",
+                error: "Connection lost permanently after multiple retries. The server could not complete the request.",
+              };
+            }
+            return prev;
+          });
         }
-        return prev;
-      });
+      }
     } catch (error: any) {
       if (error.name === "AbortError") return;
       console.error("Research stream error", error);

@@ -33,6 +33,7 @@
 import { NextRequest } from "next/server";
 import { buildGraph, NODE_LABELS } from "@/lib/agent/graph";
 import { ratelimit } from "@/lib/ratelimit";
+import { UpstashSaver } from "@/lib/agent/upstash-saver";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60; // 60 seconds — Vercel Hobby plan maximum
@@ -70,13 +71,15 @@ export async function POST(req: NextRequest): Promise<Response> {
   // Parse and validate request body
   let companyName: string | null = null;
   let website: string | null = null;
+  let threadId: string | null = null;
   try {
     const body = await req.json();
     companyName = validateCompanyName(body?.company);
     website = typeof body?.website === "string" ? body.website.trim() : null;
+    threadId = typeof body?.thread_id === "string" ? body.thread_id.trim() : null;
   } catch {
     return new Response(
-      JSON.stringify({ error: "Invalid request body. Expected: { company: string, website: string }" }),
+      JSON.stringify({ error: "Invalid request body. Expected: { company: string, website: string, thread_id?: string }" }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
@@ -120,13 +123,23 @@ export async function POST(req: NextRequest): Promise<Response> {
       };
 
       try {
-        const graph = buildGraph();
+        const checkpointer = new UpstashSaver();
+        const graph = buildGraph(checkpointer);
+        
+        // If the frontend didn't pass a thread_id, we create a new one
+        const activeThreadId = threadId || crypto.randomUUID();
+        
+        // Let the frontend know the thread ID so it can reconnect if disconnected
+        send({ type: "thread_created", thread_id: activeThreadId });
 
         // streamEvents v2: emits on_chain_start / on_chain_end for each node
         // We filter by langgraph_node metadata to get per-node events
         const eventStream = graph.streamEvents(
           { companyName, website },
-          { version: "v2" }
+          { 
+            version: "v2", 
+            configurable: { thread_id: activeThreadId }
+          }
         );
 
         for await (const event of eventStream) {

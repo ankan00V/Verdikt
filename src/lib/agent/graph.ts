@@ -50,7 +50,7 @@ import { synthesizeDecisionNode } from "./nodes/synthesize-decision";
  * singleton because Next.js serverless functions are stateless. If this were
  * a long-running server, we'd memoize the compiled graph.
  */
-export function buildGraph() {
+export function buildGraph(checkpointer?: any) {
   const graph = new StateGraph(AgentState)
     // -------------------------------------------------------------------------
     // Node registrations
@@ -93,7 +93,7 @@ export function buildGraph() {
     // Terminal edge
     .addEdge("synthesize_decision", END);
 
-  return graph.compile();
+  return graph.compile({ checkpointer });
 }
 
 // Export the node name list for use in the streaming API route
