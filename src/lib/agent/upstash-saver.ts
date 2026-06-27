@@ -18,47 +18,65 @@ export class UpstashSaver extends MemorySaver {
     
     if (threadId && redis) {
       try {
-        const stateStr = await redis.get<string>(`langgraph_thread_${threadId}`);
-        if (stateStr) {
-          let data;
-          // Check if it's our new base64 compressed format or the old raw JSON
-          if (!stateStr.startsWith("{") && !stateStr.startsWith("[")) {
-            const buffer = Buffer.from(stateStr, "base64");
-            const decompressed = zlib.inflateSync(buffer).toString("utf-8");
-            data = JSON.parse(decompressed);
-          } else {
-            data = JSON.parse(stateStr);
+        // @upstash/redis auto-deserializes JSON, so get() returns the actual value.
+        // For our compressed checkpoints, the value is a base64 string.
+        const rawValue = await redis.get(`langgraph_thread_${threadId}`);
+        
+        if (rawValue) {
+          let data: any;
+          
+          // rawValue may be a string (base64 compressed) or a plain object (legacy uncompressed JSON)
+          if (typeof rawValue === "string") {
+            try {
+              // Try to decompress (new compressed format)
+              const buffer = Buffer.from(rawValue, "base64");
+              const decompressed = zlib.inflateSync(buffer).toString("utf-8");
+              data = JSON.parse(decompressed);
+            } catch {
+              // Fallback: try parsing as plain JSON string (old format)
+              try {
+                data = JSON.parse(rawValue);
+              } catch {
+                console.error(`[UpstashSaver] Could not parse checkpoint for thread ${threadId}`);
+              }
+            }
+          } else if (typeof rawValue === "object") {
+            // Legacy: Upstash already parsed it as a JSON object
+            data = rawValue;
           }
 
-          // Restore storage for this thread (decode base64 back to Uint8Array)
-          const restoredStorage = Object.create(null);
-          if (data.storage) {
-            for (const [ns, nsRecord] of Object.entries(data.storage)) {
-              restoredStorage[ns] = Object.create(null);
-              for (const [checkpointId, tuple] of Object.entries(nsRecord as any)) {
-                restoredStorage[ns][checkpointId] = [
-                  new Uint8Array(Buffer.from((tuple as any)[0], "base64")),
-                  new Uint8Array(Buffer.from((tuple as any)[1], "base64")),
-                  (tuple as any)[2]
-                ];
+          if (data) {
+            // Restore storage for this thread (decode base64 back to Uint8Array)
+            const restoredStorage = Object.create(null);
+            if (data.storage) {
+              for (const [ns, nsRecord] of Object.entries(data.storage)) {
+                restoredStorage[ns] = Object.create(null);
+                for (const [checkpointId, tuple] of Object.entries(nsRecord as any)) {
+                  restoredStorage[ns][checkpointId] = [
+                    new Uint8Array(Buffer.from((tuple as any)[0], "base64")),
+                    new Uint8Array(Buffer.from((tuple as any)[1], "base64")),
+                    (tuple as any)[2]
+                  ];
+                }
               }
             }
-          }
-          this.storage[threadId] = restoredStorage;
-          
-          // Restore writes (writes are globally indexed in MemorySaver, so we merge them)
-          if (data.writes) {
-            for (const [outerKey, innerRecord] of Object.entries(data.writes)) {
-              const decodedInner = Object.create(null);
-              for (const [innerKey, tuple] of Object.entries(innerRecord as any)) {
-                decodedInner[innerKey] = [
-                  (tuple as any)[0],
-                  (tuple as any)[1],
-                  new Uint8Array(Buffer.from((tuple as any)[2], "base64"))
-                ];
+            this.storage[threadId] = restoredStorage;
+            
+            // Restore writes (writes are globally indexed in MemorySaver, so we merge them)
+            if (data.writes) {
+              for (const [outerKey, innerRecord] of Object.entries(data.writes)) {
+                const decodedInner = Object.create(null);
+                for (const [innerKey, tuple] of Object.entries(innerRecord as any)) {
+                  decodedInner[innerKey] = [
+                    (tuple as any)[0],
+                    (tuple as any)[1],
+                    new Uint8Array(Buffer.from((tuple as any)[2], "base64"))
+                  ];
+                }
+                this.writes[outerKey] = decodedInner;
               }
-              this.writes[outerKey] = decodedInner;
             }
+            console.log(`[UpstashSaver] Restored checkpoint for thread ${threadId}`);
           }
         }
       } catch (err) {
@@ -111,16 +129,27 @@ export class UpstashSaver extends MemorySaver {
         }
       }
       
-      // Store state for 1 hour (3600 seconds) to prevent DB bloat
+      // Compress payload
       const payloadString = JSON.stringify({ storage: encodedStorage, writes: encodedWrites });
       const compressedBuffer = zlib.deflateSync(Buffer.from(payloadString, "utf-8"));
       const finalPayload = compressedBuffer.toString("base64");
       
+      const payloadSizeKB = Math.round(finalPayload.length / 1024);
+      console.log(`[UpstashSaver] Saving checkpoint for thread ${threadId}: ${payloadSizeKB}KB (compressed)`);
+
+      if (finalPayload.length > 900000) {
+        console.error(`[UpstashSaver] Payload too large (${payloadSizeKB}KB), skipping save to avoid Upstash 1MB limit`);
+        return;
+      }
+
+      // IMPORTANT: Pass the base64 string wrapped in quotes so Upstash stores it as a JSON string.
+      // Without this, @upstash/redis would try to serialize it as a JSON object.
       await redis.set(
-        `langgraph_thread_${threadId}`, 
+        `langgraph_thread_${threadId}`,
         finalPayload,
         { ex: 3600 }
       );
+      console.log(`[UpstashSaver] Saved checkpoint for thread ${threadId} (${payloadSizeKB}KB)`);
     } catch (err) {
       console.error(`[UpstashSaver] Failed to sync state for thread ${threadId}:`, err);
     }
