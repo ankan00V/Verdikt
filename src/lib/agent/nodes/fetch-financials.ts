@@ -24,8 +24,59 @@ import {
 } from "../state";
 import YahooFinance from "yahoo-finance2";
 import { getCachedData } from "../../redis";
+import { z } from "zod";
+import fetch from "node-fetch";
+import { HttpsProxyAgent } from "https-proxy-agent";
+
+const FallbackFinancialsSchema = z.object({
+  incomeStatements: z.array(
+    z.object({
+      date: z.string(),
+      revenue: z.number().nullable(),
+      grossProfit: z.number().nullable(),
+      operatingIncome: z.number().nullable(),
+      netIncome: z.number().nullable(),
+      eps: z.number().nullable(),
+      grossProfitRatio: z.number().nullable(),
+      operatingIncomeRatio: z.number().nullable(),
+      netIncomeRatio: z.number().nullable(),
+    })
+  ),
+  keyMetrics: z.object({
+    peRatio: z.number().nullable(),
+    pbRatio: z.number().nullable(),
+    evToEbitda: z.number().nullable(),
+    debtToEquity: z.number().nullable(),
+    currentRatio: z.number().nullable(),
+    returnOnEquity: z.number().nullable(),
+    returnOnAssets: z.number().nullable(),
+    freeCashFlowPerShare: z.number().nullable(),
+    revenuePerShare: z.number().nullable(),
+    revenueGrowthYoY: z.number().nullable(),
+  }),
+  ratios: z.object({
+    grossProfitMargin: z.number().nullable(),
+    operatingProfitMargin: z.number().nullable(),
+    netProfitMargin: z.number().nullable(),
+    debtEquityRatio: z.number().nullable(),
+    quickRatio: z.number().nullable(),
+    dividendYield: z.number().nullable(),
+  }),
+});
 
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+// Inject Proxy Agent if the user has provided a proxy URL to bypass Vercel IP blocks
+if (process.env.YAHOO_PROXY_URL) {
+  const proxyAgent = new HttpsProxyAgent(process.env.YAHOO_PROXY_URL);
+  yahooFinance.setGlobalConfig({
+    // @ts-expect-error - overriding fetch with node-fetch requires a slight type cast
+    fetch: (url: string | URL, init?: any) => {
+      return fetch(url.toString(), { ...init, agent: proxyAgent });
+    },
+  });
+  console.log("[fetch_financials] Yahoo Finance is routing through a proxy.");
+}
 
 export async function fetchFinancialsNode(
   state: AgentStateType
@@ -164,22 +215,20 @@ export async function fetchFinancialsNode(
   if (!financialsAvailable) {
     console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
     try {
-      const { invokeStringLLM } = await import("../llm");
-      const prompt = `Provide the latest financial data for ${ticker} in JSON format strictly matching this schema:
-{
-  "incomeStatements": [{"date":"YYYY-MM-DD","revenue":number,"grossProfit":number,"operatingIncome":number,"netIncome":number,"eps":number,"grossProfitRatio":number,"operatingIncomeRatio":number,"netIncomeRatio":number}],
-  "keyMetrics": {"peRatio":number,"pbRatio":number,"evToEbitda":number,"debtToEquity":number,"currentRatio":number,"returnOnEquity":number,"returnOnAssets":number,"freeCashFlowPerShare":number,"revenuePerShare":number,"revenueGrowthYoY":number},
-  "ratios": {"grossProfitMargin":number,"operatingProfitMargin":number,"netProfitMargin":number,"debtEquityRatio":number,"quickRatio":number,"dividendYield":number}
-}
-Only output the JSON object. Do not include markdown formatting or explanations. Make sure numbers are accurate according to the latest annual reports. If any value is unknown, use null.`;
+      const { invokeStructuredLLM } = await import("../llm");
+      const prompt = `Provide the latest financial data for ${ticker}. 
+      Make sure numbers are accurate according to the latest annual reports. 
+      If any value is unknown, use null.`;
       
-      const response = await invokeStringLLM(prompt, { maxTokens: 1500, temperature: 0 });
-      const text = response.replace(/```json/g, "").replace(/```/g, "");
-      const fallbackFinancials = JSON.parse(text) as FinancialData;
+      const fallbackFinancials = await invokeStructuredLLM(
+        [{ role: "user", content: prompt }],
+        FallbackFinancialsSchema,
+        { temperature: 0 }
+      );
       
       return {
         companyProfile: companyProfile || state.companyProfile,
-        financials: fallbackFinancials,
+        financials: fallbackFinancials as FinancialData,
         financialsAvailable: true,
       };
     } catch (fallbackErr) {

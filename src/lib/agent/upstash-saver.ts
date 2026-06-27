@@ -1,6 +1,7 @@
 import { MemorySaver } from "@langchain/langgraph-checkpoint";
 import type { RunnableConfig } from "@langchain/core/runnables";
 import { redis } from "../redis";
+import * as zlib from "zlib";
 
 /**
  * A custom CheckpointSaver that extends LangGraph's built-in MemorySaver
@@ -17,8 +18,18 @@ export class UpstashSaver extends MemorySaver {
     
     if (threadId && redis) {
       try {
-        const data = await redis.get<any>(`langgraph_thread_${threadId}`);
-        if (data) {
+        const stateStr = await redis.get<string>(`langgraph_thread_${threadId}`);
+        if (stateStr) {
+          let data;
+          // Check if it's our new base64 compressed format or the old raw JSON
+          if (!stateStr.startsWith("{") && !stateStr.startsWith("[")) {
+            const buffer = Buffer.from(stateStr, "base64");
+            const decompressed = zlib.inflateSync(buffer).toString("utf-8");
+            data = JSON.parse(decompressed);
+          } else {
+            data = JSON.parse(stateStr);
+          }
+
           // Restore storage for this thread (decode base64 back to Uint8Array)
           const restoredStorage = Object.create(null);
           if (data.storage) {
@@ -101,9 +112,13 @@ export class UpstashSaver extends MemorySaver {
       }
       
       // Store state for 1 hour (3600 seconds) to prevent DB bloat
+      const payloadString = JSON.stringify({ storage: encodedStorage, writes: encodedWrites });
+      const compressedBuffer = zlib.deflateSync(Buffer.from(payloadString, "utf-8"));
+      const finalPayload = compressedBuffer.toString("base64");
+      
       await redis.set(
         `langgraph_thread_${threadId}`, 
-        { storage: encodedStorage, writes: encodedWrites },
+        finalPayload,
         { ex: 3600 }
       );
     } catch (err) {

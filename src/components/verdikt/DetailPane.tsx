@@ -244,18 +244,20 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
     }
     case "analyze_fundamentals": {
       const f = output.fundamentalsAnalysis || {};
-      const isMissing = !f.revenueGrowthAssessment && !f.marginQuality && !f.balanceSheetHealth;
       
-      if (f.overallScore === "unavailable" || isMissing) {
+      // If the LLM explicitly flagged it as unavailable and provided no real analysis, we show a generic warning
+      // rather than the misleading 'Private Company' text (which is wrong for public companies with missing data).
+      const isMissing = !f.revenueGrowthAssessment && !f.marginQuality && !f.balanceSheetHealth;
+      if (isMissing || f.flag === "ERROR") {
         return (
           <div className="flex flex-col gap-4">
             <div className="bg-[#C9A227]/10 border border-[#C9A227]/30 rounded-xl p-4 flex flex-col gap-2">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[#C9A227]">⚠</span>
-                <span className="text-sm font-semibold text-[#C9A227]">Private Company</span>
+                <span className="text-sm font-semibold text-[#C9A227]">Analysis Unavailable</span>
               </div>
               <p className="text-xs text-[#C9A227]/90 leading-relaxed">
-                Fundamental growth and balance sheet metrics are restricted for private companies. Verdikt relies on sentiment and competitive positioning to form its verdict instead.
+                Fundamental growth and balance sheet metrics could not be fully analyzed for this entity. Verdikt relies on sentiment and competitive positioning to form its verdict instead.
               </p>
             </div>
           </div>

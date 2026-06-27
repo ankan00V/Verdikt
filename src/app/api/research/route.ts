@@ -114,9 +114,12 @@ export async function POST(req: NextRequest): Promise<Response> {
     async start(controller) {
       const send = (message: object): void => {
         try {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(message)}\n\n`)
-          );
+          const payload = `data: ${JSON.stringify(message)}\n\n`;
+          // Vercel Serverless (Node.js runtime) aggressively buffers small chunks.
+          // By appending a large SSE comment (which is ignored by EventSource clients),
+          // we force the buffer to flush immediately to the client.
+          const padding = `: ${" ".repeat(1024)}\n\n`;
+          controller.enqueue(encoder.encode(payload + padding));
         } catch {
           // Controller may be closed if client disconnected
         }
