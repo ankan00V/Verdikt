@@ -95,7 +95,7 @@ export async function fetchFinancialsNode(
 
   try {
     const quote = await getCachedData(
-      `financials_v2:${ticker}`,
+      `financials_v3:${ticker}`,
       async () => {
         // Build fetchOptions with proxy if available
         // yahoo-finance2 v3 accepts fetchOptions per-call via the third argument (moduleOptions)

@@ -42,6 +42,7 @@ import { analyzeFundamentalsNode } from "./nodes/analyze-fundamentals";
 import { analyzeSentimentNode } from "./nodes/analyze-sentiment";
 import { analyzeCompetitiveNode } from "./nodes/analyze-competitive";
 import { synthesizeDecisionNode } from "./nodes/synthesize-decision";
+import { withNodeCache } from "../redis";
 
 /**
  * Builds and compiles the research graph.
@@ -53,17 +54,19 @@ import { synthesizeDecisionNode } from "./nodes/synthesize-decision";
 export function buildGraph(checkpointer?: any) {
   const graph = new StateGraph(AgentState)
     // -------------------------------------------------------------------------
-    // Node registrations
+    // Node registrations — each node is wrapped with withNodeCache so that
+    // even if LangGraph re-runs a completed node after a Vercel timeout,
+    // the cached result is returned in <100ms instead of re-doing LLM work.
     // -------------------------------------------------------------------------
-    .addNode("resolve_ticker", resolveTickerNode)
-    .addNode("fetch_financials", fetchFinancialsNode)
-    .addNode("fetch_news", fetchNewsNode)
-    .addNode("fetch_web_research", fetchWebResearchNode)
-    .addNode("gather_data", gatherDataNode)
-    .addNode("analyze_fundamentals", analyzeFundamentalsNode)
-    .addNode("analyze_sentiment", analyzeSentimentNode)
-    .addNode("analyze_competitive_position", analyzeCompetitiveNode)
-    .addNode("synthesize_decision", synthesizeDecisionNode)
+    .addNode("resolve_ticker", withNodeCache("resolve_ticker", resolveTickerNode))
+    .addNode("fetch_financials", withNodeCache("fetch_financials", fetchFinancialsNode))
+    .addNode("fetch_news", withNodeCache("fetch_news", fetchNewsNode))
+    .addNode("fetch_web_research", withNodeCache("fetch_web_research", fetchWebResearchNode))
+    .addNode("gather_data", withNodeCache("gather_data", gatherDataNode))
+    .addNode("analyze_fundamentals", withNodeCache("analyze_fundamentals", analyzeFundamentalsNode))
+    .addNode("analyze_sentiment", withNodeCache("analyze_sentiment", analyzeSentimentNode))
+    .addNode("analyze_competitive_position", withNodeCache("analyze_competitive_position", analyzeCompetitiveNode))
+    .addNode("synthesize_decision", withNodeCache("synthesize_decision", synthesizeDecisionNode))
 
     // -------------------------------------------------------------------------
     // Edge definitions — these declare the execution order
@@ -109,3 +112,4 @@ export const NODE_LABELS: Record<string, string> = {
   analyze_competitive_position: "Analyzing competitive position",
   synthesize_decision: "Synthesizing verdict",
 };
+
