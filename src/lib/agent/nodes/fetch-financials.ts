@@ -25,7 +25,6 @@ import {
 import YahooFinance from "yahoo-finance2";
 import { getCachedData } from "../../redis";
 import { z } from "zod";
-import fetch from "node-fetch";
 import { HttpsProxyAgent } from "https-proxy-agent";
 
 const FallbackFinancialsSchema = z.object({
@@ -66,15 +65,12 @@ const FallbackFinancialsSchema = z.object({
 
 const yahooFinance = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
-// Inject Proxy Agent if the user has provided a proxy URL to bypass Vercel IP blocks
-if (process.env.YAHOO_PROXY_URL) {
-  const proxyAgent = new HttpsProxyAgent(process.env.YAHOO_PROXY_URL);
-  yahooFinance.setGlobalConfig({
-    // @ts-expect-error - overriding fetch with node-fetch requires a slight type cast
-    fetch: (url: string | URL, init?: any) => {
-      return fetch(url.toString(), { ...init, agent: proxyAgent });
-    },
-  });
+// Build a proxy agent once at module load time if YAHOO_PROXY_URL is set
+const proxyAgent = process.env.YAHOO_PROXY_URL
+  ? new HttpsProxyAgent(process.env.YAHOO_PROXY_URL)
+  : undefined;
+
+if (proxyAgent) {
   console.log("[fetch_financials] Yahoo Finance is routing through a proxy.");
 }
 
@@ -101,16 +97,27 @@ export async function fetchFinancialsNode(
     const quote = await getCachedData(
       `financials_v2:${ticker}`,
       async () => {
-        const q = await yahooFinance.quoteSummary(ticker, {
-          modules: [
-            "assetProfile",
-            "price",
-            "incomeStatementHistory",
-            "defaultKeyStatistics",
-            "financialData",
-            "summaryDetail",
-          ],
-        });
+        // Build fetchOptions with proxy if available
+        // yahoo-finance2 v3 accepts fetchOptions per-call via the third argument (moduleOptions)
+        const moduleOptions = proxyAgent
+          ? { fetchOptions: { agent: proxyAgent } }
+          : {};
+
+        const q = await yahooFinance.quoteSummary(
+          ticker,
+          {
+            modules: [
+              "assetProfile",
+              "price",
+              "incomeStatementHistory",
+              "defaultKeyStatistics",
+              "financialData",
+              "summaryDetail",
+            ],
+          },
+          // @ts-expect-error - moduleOptions typing varies across versions
+          moduleOptions
+        );
         
         // Prevent caching completely empty responses (e.g. rate limit)
         if (!q.price && !q.financialData && !q.assetProfile) {
