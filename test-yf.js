@@ -1,8 +1,13 @@
-const { default: YahooFinance } = require('yahoo-finance2');
-const yahooFinance = new YahooFinance({ suppressNotices: ['yahooSurvey'] });
-async function run() {
-  const quote = await yahooFinance.quoteSummary('AAPL', { modules: ['financialData', 'defaultKeyStatistics', 'assetProfile'] });
-  console.log("financialData:", Object.keys(quote.financialData));
-  console.log("defaultKeyStatistics:", Object.keys(quote.defaultKeyStatistics));
+const yahooFinance = require('yahoo-finance2').default;
+async function test() {
+  try {
+    const quote = await yahooFinance.quoteSummary('AAPL', { modules: ['price'] });
+    console.log("Success:", quote.price.shortName);
+    
+    // Check if we can extract crumb/cookie
+    console.log("Crumb:", await yahooFinance._getCrumb());
+  } catch (e) {
+    console.error("Error:", e.message);
+  }
 }
-run();
+test();
