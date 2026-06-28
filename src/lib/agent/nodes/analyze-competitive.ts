@@ -49,8 +49,8 @@ export async function analyzeCompetitiveNode(
 ): Promise<Partial<AgentStateType>> {
 
 
-  // Stagger request by 6s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
-  await new Promise((resolve) => setTimeout(resolve, 6000));
+  // Stagger request slightly to avoid simultaneous NIM hits (retry logic in llm.ts handles 429s)
+  await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const webContext = formatWebResearchContext(state);
   const companyName = state.companyProfile?.name ?? state.companyName;

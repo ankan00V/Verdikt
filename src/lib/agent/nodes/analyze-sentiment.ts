@@ -49,8 +49,8 @@ export async function analyzeSentimentNode(
 ): Promise<Partial<AgentStateType>> {
 
 
-  // Stagger request by 3s to prevent NVIDIA NIM HTTP 429 Too Many Requests from concurrent limits
-  await new Promise((resolve) => setTimeout(resolve, 3000));
+  // Stagger request slightly to avoid simultaneous NIM hits (retry logic in llm.ts handles 429s)
+  await new Promise((resolve) => setTimeout(resolve, 500));
 
   const newsContext = formatNewsContext(state);
   const companyName = state.companyProfile?.name ?? state.companyName;

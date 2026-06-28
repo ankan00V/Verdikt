@@ -72,29 +72,60 @@ export async function invokeStructuredLLM<T>(
 ): Promise<T> {
   const { primaryLLM, fallbackLLM } = createLLMs(options);
   const structuredPrimary = primaryLLM.withStructuredOutput(schema);
+  const structuredFallback = fallbackLLM
+    ? fallbackLLM.withStructuredOutput(schema)
+    : null;
 
-  
-  let llm = structuredPrimary;
-  if (fallbackLLM) {
-    const structuredFallback = fallbackLLM.withStructuredOutput(schema);
-    llm = structuredPrimary.withFallbacks({ fallbacks: [structuredFallback] });
-  }
-  
-  // Strict kill-switch: abort the underlying fetch so LangGraph doesn't wait for dangling promises
-  const timeoutValueMs = options.timeoutMs || 25000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeoutValueMs);
+  const timeoutValueMs = options.timeoutMs || 50000;
+  const MAX_RETRIES = 3;
 
-  try {
-    return (await llm.invoke(prompt, { signal: controller.signal })) as T;
-  } catch (error: any) {
-    if (error.name === "AbortError" || controller.signal.aborted) {
-      throw new Error(`LLM API request timed out after ${timeoutValueMs}ms`);
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    // Alternate between primary and fallback on retries to spread load
+    const llm = attempt % 2 === 1 || !structuredFallback
+      ? structuredPrimary
+      : structuredFallback;
+    const label = attempt % 2 === 1 || !structuredFallback ? "primary" : "fallback";
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutValueMs);
+
+    try {
+      console.log(`[LLM] Structured call attempt ${attempt}/${MAX_RETRIES} (${label}, timeout=${timeoutValueMs}ms)`);
+      const result = (await llm.invoke(prompt, { signal: controller.signal })) as T;
+      clearTimeout(timeoutId);
+      return result;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const isTimeout = error.name === "AbortError" || controller.signal.aborted;
+      const is429 = error.status === 429 || error.message?.includes("429");
+      const isRetryable = isTimeout || is429 || error.message?.includes("ECONNRESET");
+
+      console.error(
+        `[LLM] Structured call attempt ${attempt}/${MAX_RETRIES} failed (${label}):`,
+        isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
+      );
+
+      if (attempt < MAX_RETRIES && isRetryable) {
+        // Exponential backoff: 2s, 4s
+        const backoffMs = 2000 * attempt;
+        console.log(`[LLM] Retrying in ${backoffMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      // Non-retryable error or last attempt — throw immediately
+      if (isTimeout) {
+        throw new Error(`LLM API request timed out after ${timeoutValueMs}ms (${MAX_RETRIES} attempts)`);
+      }
+      throw error;
     }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError;
 }
