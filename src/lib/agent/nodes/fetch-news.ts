@@ -35,8 +35,9 @@ export async function fetchNewsNode(
       includeRawContent: false,
     });
 
+    const cacheKey = ticker ? `news:${ticker}` : `news:company:${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     const rawResults = await getCachedData(
-      `news:${ticker}`,
+      cacheKey,
       () => tool.invoke({ query }),
       86400 // 24 hours
     );
@@ -75,7 +76,8 @@ export async function fetchNewsNode(
     try {
       await new Promise(resolve => setTimeout(resolve, 2000));
       const { invokeStringLLM } = await import("../llm");
-      const prompt = `Recall 3 major real-world news events, recent press releases, or major themes regarding ${ticker} from your training data. Do not make anything up.
+      const target = ticker ? `ticker ${ticker}` : `the company ${companyName}`;
+      const prompt = `Recall 3 major real-world news events, recent press releases, or major themes regarding ${target} from your training data. Do not make anything up.
 Output strictly in this JSON format:
 [
   {"title": "string", "url": "string", "content": "string"}

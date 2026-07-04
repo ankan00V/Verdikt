@@ -83,6 +83,22 @@ function formatFinancialContext(state: AgentStateType): string {
 export async function analyzeFundamentalsNode(
   state: AgentStateType
 ): Promise<Partial<AgentStateType>> {
+  if (!state.financialsAvailable || !state.financials) {
+    return {
+      fundamentalsAnalysis: {
+        available: false,
+        flag: "ERROR",
+        revenueGrowthAssessment: "Fundamental data analysis could not be completed for this company.",
+        marginQuality: "Data analysis unavailable.",
+        balanceSheetHealth: "Data analysis unavailable.",
+        valuationComment: "Data analysis unavailable.",
+        overallScore: "unavailable",
+        keyNumbers: [],
+        dataLimitationNote: "Insufficient data for fundamental analysis.",
+      },
+    };
+  }
+
   const financialContext = formatFinancialContext(state);
 
   const systemPrompt =

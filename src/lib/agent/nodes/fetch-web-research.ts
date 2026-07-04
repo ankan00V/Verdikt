@@ -38,8 +38,9 @@ export async function fetchWebResearchNode(
       includeRawContent: false,
     });
 
+    const cacheKey = ticker ? `webresearch:${ticker}` : `webresearch:company:${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     const rawResults = await getCachedData(
-      `webresearch:${ticker}`,
+      cacheKey,
       () => tool.invoke({ query }),
       86400 // 24 hours
     );
@@ -75,7 +76,8 @@ export async function fetchWebResearchNode(
     try {
       await new Promise(resolve => setTimeout(resolve, 4000));
       const { invokeStringLLM } = await import("../llm");
-      const prompt = `Recall actual real-world facts about the business model, competitive advantage, and market position of ${ticker} from your training data. Do not hallucinate.
+      const target = ticker ? `ticker ${ticker}` : `the company ${companyName}`;
+      const prompt = `Recall actual real-world facts about the business model, competitive advantage, and market position of ${target} from your training data. Do not hallucinate.
 Output strictly in this JSON format:
 [
   {"title": "string", "url": "string", "content": "string"}
