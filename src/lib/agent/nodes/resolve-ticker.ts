@@ -26,7 +26,7 @@ Do they plausibly match the same entity? For example:
 Reply ONLY with "YES" or "NO".`;
 
   try {
-    const response = await invokeStringLLM(prompt, { maxTokens: 10, temperature: 0 });
+    const response = await invokeStringLLM(prompt, { maxTokens: 10, temperature: 0, timeoutMs: 15000 });
     const text = response.toUpperCase();
     console.log(`[verify_identity] LLM verification for "${companyName}" & "${website}": ${text}`);
     return text.includes("YES");
@@ -78,7 +78,7 @@ ${content.slice(0, 2000)}`;
 
   let candidates: string[] = [];
   try {
-    const response = await invokeStringLLM(prompt, { maxTokens: 50, temperature: 0 });
+    const response = await invokeStringLLM(prompt, { maxTokens: 50, temperature: 0, timeoutMs: 15000 });
     const contentStr = response;
     console.log("[resolve_ticker] LLM response:", contentStr);
     // Parse JSON array

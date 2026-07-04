@@ -1,4 +1,4 @@
-import { fetchFinancialsNode } from "./src/lib/agent/nodes/fetch-financials";
+import { fetchFinancialsNode } from "../src/lib/agent/nodes/fetch-financials";
 
 async function run() {
   console.log("=== Testing AAPL ===");

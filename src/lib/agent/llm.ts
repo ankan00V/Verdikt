@@ -45,8 +45,7 @@ export async function invokeStringLLM(
   const llm = fallbackLLM ? primaryLLM.withFallbacks({ fallbacks: [fallbackLLM] }) : primaryLLM;
   
   // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
-  // Increased from 25s to 50s because some parallel nodes have a 6s stagger
-  const timeoutMs = options.timeoutMs || 50000;
+  const timeoutMs = options.timeoutMs || 25000;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
@@ -76,7 +75,7 @@ export async function invokeStructuredLLM<T>(
     ? fallbackLLM.withStructuredOutput(schema)
     : null;
 
-  const timeoutValueMs = options.timeoutMs || 50000;
+  const timeoutValueMs = options.timeoutMs || 15000;
   const MAX_RETRIES = 3;
 
   let lastError: any;

@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { buildGraph } from "./src/lib/agent/graph";
+import { buildGraph } from "../src/lib/agent/graph";
 
 async function main() {
   const company = process.argv[2];

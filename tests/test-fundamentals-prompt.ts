@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 import { ChatOpenAI } from "@langchain/openai";
-import { FundamentalsSchema } from "./src/lib/agent/schemas";
+import { FundamentalsSchema } from "../src/lib/agent/schemas";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
 async function main() {

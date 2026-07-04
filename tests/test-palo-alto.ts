@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { graph } from "./src/lib/agent/graph";
+import { graph } from "../src/lib/agent/graph";
 
 async function main() {
   const companyName = "Palo Alto";

@@ -4,7 +4,7 @@ config({ path: ".env.local" });
 import { NextRequest } from "next/server";
 
 async function runTests() {
-  const { POST } = await import("./src/app/api/research/route");
+  const { POST } = await import("../src/app/api/research/route");
   console.log("=== Testing Rate Limiter ===");
   let rateLimited = false;
 

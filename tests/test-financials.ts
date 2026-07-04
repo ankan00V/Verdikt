@@ -1,7 +1,7 @@
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
-import { fetchFinancialsNode } from "./src/lib/agent/nodes/fetch-financials";
+import { fetchFinancialsNode } from "../src/lib/agent/nodes/fetch-financials";
 
 async function main() {
   const result = await fetchFinancialsNode({

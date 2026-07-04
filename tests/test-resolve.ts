@@ -1,4 +1,4 @@
-import { resolveTickerNode } from "./src/lib/agent/nodes/resolve-ticker";
+import { resolveTickerNode } from "../src/lib/agent/nodes/resolve-ticker";
 import { config } from "dotenv";
 config({ path: ".env.local" });
 
