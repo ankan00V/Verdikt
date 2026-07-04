@@ -42,7 +42,7 @@ export async function fetchWebResearchNode(
     const rawResults = await getCachedData(
       cacheKey,
       () => tool.invoke({ query }),
-      86400 // 24 hours
+      3600 // 1 hour (reduced from 24 hours to ensure freshness)
     );
 
     const parsed =

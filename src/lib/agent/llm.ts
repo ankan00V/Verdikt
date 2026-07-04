@@ -42,26 +42,54 @@ export async function invokeStringLLM(
   options: LLMOptions = {}
 ): Promise<string> {
   const { primaryLLM, fallbackLLM } = createLLMs(options);
-  const llm = fallbackLLM ? primaryLLM.withFallbacks({ fallbacks: [fallbackLLM] }) : primaryLLM;
-  
-  // Strict kill-switch: abort if LLM takes too long so we don't crash the Vercel 60s limit
-  const timeoutMs = options.timeoutMs || 25000;
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, timeoutMs);
 
-  try {
-    const response = await llm.invoke(prompt, { signal: controller.signal });
-    return (response.content as string).trim();
-  } catch (error: any) {
-    if (error.name === "AbortError" || controller.signal.aborted) {
-      throw new Error(`LLM API request timed out after ${timeoutMs}ms`);
+  const timeoutValueMs = options.timeoutMs || 25000;
+  const MAX_RETRIES = 3;
+
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    const llm = attempt % 2 === 1 || !fallbackLLM
+      ? primaryLLM
+      : fallbackLLM;
+    const label = attempt % 2 === 1 || !fallbackLLM ? "primary" : "fallback";
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutValueMs);
+
+    try {
+      console.log(`[LLM] String call attempt ${attempt}/${MAX_RETRIES} (${label}, timeout=${timeoutValueMs}ms)`);
+      const response = await llm.invoke(prompt, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      return (response.content as string).trim();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const isTimeout = error.name === "AbortError" || controller.signal.aborted;
+
+      console.error(
+        `[LLM] String call attempt ${attempt}/${MAX_RETRIES} failed (${label}):`,
+        isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
+      );
+
+      if (attempt < MAX_RETRIES) {
+        const backoffMs = 2000 * attempt;
+        console.log(`[LLM] Retrying in ${backoffMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, backoffMs));
+        continue;
+      }
+
+      if (isTimeout) {
+        throw new Error(`LLM API request timed out after ${timeoutValueMs}ms (${MAX_RETRIES} attempts)`);
+      }
+      throw error;
     }
-    throw error;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  throw lastError;
 }
 
 export async function invokeStructuredLLM<T>(
@@ -102,15 +130,14 @@ export async function invokeStructuredLLM<T>(
       lastError = error;
 
       const isTimeout = error.name === "AbortError" || controller.signal.aborted;
-      const is429 = error.status === 429 || error.message?.includes("429");
-      const isRetryable = isTimeout || is429 || error.message?.includes("ECONNRESET");
 
       console.error(
         `[LLM] Structured call attempt ${attempt}/${MAX_RETRIES} failed (${label}):`,
         isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
       );
 
-      if (attempt < MAX_RETRIES && isRetryable) {
+      // ALWAYS retry up to MAX_RETRIES to ensure we try the fallback LLM even on 401 errors
+      if (attempt < MAX_RETRIES) {
         // Exponential backoff: 2s, 4s
         const backoffMs = 2000 * attempt;
         console.log(`[LLM] Retrying in ${backoffMs}ms...`);
