@@ -9,9 +9,10 @@ export interface LLMOptions {
 }
 
 function createLLMInstance(isFallback: boolean, options: LLMOptions) {
+  // Prioritize PUTER_TOKEN if it exists, otherwise fall back to other keys
   const apiKey = isFallback 
-    ? (process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY ?? process.env.PUTER_TOKEN)
-    : (process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY ?? process.env.PUTER_TOKEN);
+    ? (process.env.PUTER_TOKEN ?? process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY)
+    : (process.env.PUTER_TOKEN ?? process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY);
   
   let baseUrl = isFallback 
     ? (process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL) 
@@ -39,11 +40,31 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
       configuration: {
         fetch: async (url, fetchOptions) => {
           const body = JSON.parse((fetchOptions?.body as string) || "{}");
+          console.log("LLM Request Body:", JSON.stringify(body, null, 2));
           
           const puterOptions: any = { model: body.model };
           if (body.temperature !== undefined) puterOptions.temperature = body.temperature;
           if (body.max_tokens !== undefined) puterOptions.max_tokens = body.max_tokens;
-          if (body.tools) puterOptions.tools = body.tools;
+          
+          // Puter's wrapper might ignore response_format or tools. Inject them into the system prompt.
+          let systemPromptAdditions = "";
+          if (body.response_format?.type === "json_schema") {
+             systemPromptAdditions = `\n\nCRITICAL: You must output ONLY valid JSON that strictly adheres to this JSON schema: ${JSON.stringify(body.response_format.json_schema.schema)}`;
+          } else if (body.tools) {
+             systemPromptAdditions = `\n\nCRITICAL: You have access to the following tools: ${JSON.stringify(body.tools)}. If you want to call a tool, output ONLY a JSON array of tool calls in the format: [{"id": "call_1", "type": "function", "function": {"name": "tool_name", "arguments": "{...}"}}]`;
+             // We don't pass body.tools to puterOptions to avoid errors if Puter rejects them
+          } else if (body.response_format?.type === "json_object") {
+             systemPromptAdditions = `\n\nCRITICAL: You must output ONLY valid JSON.`;
+          }
+
+          if (systemPromptAdditions) {
+             const sysMsgIndex = body.messages.findIndex((m: any) => m.role === 'system');
+             if (sysMsgIndex >= 0) {
+                body.messages[sysMsgIndex].content += systemPromptAdditions;
+             } else {
+                body.messages.unshift({ role: 'system', content: systemPromptAdditions });
+             }
+          }
 
           // Call Puter SDK
           const puterResponse = await puter.ai.chat(body.messages, puterOptions);
@@ -51,6 +72,14 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
           // Map Puter response to OpenAI format so LangChain can parse it
           let finishReason = 'stop';
           let content: any = puterResponse.message?.content || "";
+          
+          // Strip markdown backticks if present to help LangChain's JSON parser
+          if (typeof content === 'string' && content.trim().startsWith('```')) {
+            content = content.replace(/^```(?:json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+          }
+
+          console.log("Returned content to LangChain:", JSON.stringify(content));
+
           let toolCallsResult: any = undefined;
 
           if (puterResponse.message?.tool_calls && puterResponse.message.tool_calls.length > 0) {
@@ -95,6 +124,12 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
     });
   }
 
+
+  // If we are using NVIDIA NIM (default base URL), the model prefix must be "meta/" not "meta-llama/"
+  const isNvidia = (baseUrl ?? "https://integrate.api.nvidia.com/v1").includes("nvidia");
+  if (isNvidia && modelName.startsWith("meta-llama/")) {
+    modelName = modelName.replace("meta-llama/", "meta/");
+  }
 
   return new ChatOpenAI({
     model: modelName,
