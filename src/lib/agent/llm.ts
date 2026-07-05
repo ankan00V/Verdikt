@@ -18,8 +18,8 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
     : (process.env.PRIMARY_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL);
     
   let modelName = isFallback 
-    ? (process.env.FALLBACK_MODEL ?? "meta-llama/llama-3.1-8b-instruct") 
-    : (process.env.PRIMARY_MODEL ?? "meta-llama/llama-3.1-8b-instruct");
+    ? (process.env.FALLBACK_MODEL ?? "meta-llama/llama-3.1-70b-instruct") 
+    : (process.env.PRIMARY_MODEL ?? "meta-llama/llama-3.1-70b-instruct");
   
   if (!apiKey) return null;
 
