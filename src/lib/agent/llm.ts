@@ -23,10 +23,10 @@ export function createLLMs(options: LLMOptions = {}) {
   let fallbackLLM: ChatOpenAI | null = null;
   if (process.env.NVIDIA_FALLBACK_API_KEY) {
     fallbackLLM = new ChatOpenAI({
-      model: "meta/llama-3.3-70b-instruct",
+      model: process.env.FALLBACK_MODEL ?? "meta/llama-3.3-70b-instruct",
       apiKey: process.env.NVIDIA_FALLBACK_API_KEY,
       configuration: {
-        baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+        baseURL: process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
       },
       temperature: options.temperature ?? 0,
       maxTokens: options.maxTokens,
