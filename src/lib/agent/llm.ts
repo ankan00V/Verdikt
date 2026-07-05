@@ -1,5 +1,4 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { BaseMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
@@ -11,8 +10,8 @@ export interface LLMOptions {
 
 function createLLMInstance(isFallback: boolean, options: LLMOptions) {
   const apiKey = isFallback 
-    ? (process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GROQ_API_KEY ?? process.env.PUTER_TOKEN)
-    : (process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GROQ_API_KEY ?? process.env.PUTER_TOKEN);
+    ? (process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY ?? process.env.PUTER_TOKEN)
+    : (process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY ?? process.env.PUTER_TOKEN);
   
   let baseUrl = isFallback 
     ? (process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL) 
@@ -96,22 +95,6 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
     });
   }
 
-  // Auto-detect Groq
-  if (apiKey.startsWith("gsk_")) {
-    baseUrl = baseUrl ?? "https://api.groq.com/openai/v1";
-    modelName = modelName.includes("llama") || modelName.includes("mixtral") ? modelName : "llama-3.3-70b-versatile";
-  }
-
-  // Auto-detect Google Gemini
-  if (apiKey.startsWith("AIza")) {
-    return new ChatGoogleGenerativeAI({
-      apiKey: apiKey,
-      model: modelName.includes("gemini") ? modelName : "gemini-2.5-flash",
-      temperature: options.temperature ?? 0,
-      maxOutputTokens: options.maxTokens,
-      maxRetries: 0,
-    });
-  }
 
   return new ChatOpenAI({
     model: modelName,
