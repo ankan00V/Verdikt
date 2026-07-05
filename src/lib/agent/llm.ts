@@ -1,4 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { BaseMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
@@ -8,31 +9,130 @@ export interface LLMOptions {
   timeoutMs?: number;
 }
 
-export function createLLMs(options: LLMOptions = {}) {
-  const primaryLLM = new ChatOpenAI({
-    model: "meta/llama-3.3-70b-instruct",
-    apiKey: process.env.NVIDIA_NIM_API_KEY,
+function createLLMInstance(isFallback: boolean, options: LLMOptions) {
+  const apiKey = isFallback 
+    ? (process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GROQ_API_KEY ?? process.env.PUTER_TOKEN)
+    : (process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY ?? process.env.GOOGLE_API_KEY ?? process.env.GROQ_API_KEY ?? process.env.PUTER_TOKEN);
+  
+  let baseUrl = isFallback 
+    ? (process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL) 
+    : (process.env.PRIMARY_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL);
+    
+  let modelName = isFallback 
+    ? (process.env.FALLBACK_MODEL ?? "meta-llama/llama-3.3-70b-instruct") 
+    : (process.env.PRIMARY_MODEL ?? "meta-llama/llama-3.3-70b-instruct");
+  
+  if (!apiKey) return null;
+
+  // Auto-detect Puter API Token (usually a JWT or similar long string)
+  // If the user sets PUTER_TOKEN, we intercept the LangChain fetch and route it through the puter.js SDK
+  if (apiKey === process.env.PUTER_TOKEN && apiKey.length > 50) {
+    // We dynamically require puter to avoid issues if it's not installed
+    const { init } = require('@heyputer/puter.js/src/init.cjs');
+    const puter = init(apiKey);
+
+    return new ChatOpenAI({
+      model: modelName,
+      apiKey: "dummy-key",
+      temperature: options.temperature ?? 0,
+      maxTokens: options.maxTokens,
+      maxRetries: 0,
+      configuration: {
+        fetch: async (url, fetchOptions) => {
+          const body = JSON.parse((fetchOptions?.body as string) || "{}");
+          
+          const puterOptions: any = { model: body.model };
+          if (body.temperature !== undefined) puterOptions.temperature = body.temperature;
+          if (body.max_tokens !== undefined) puterOptions.max_tokens = body.max_tokens;
+          if (body.tools) puterOptions.tools = body.tools;
+
+          // Call Puter SDK
+          const puterResponse = await puter.ai.chat(body.messages, puterOptions);
+          
+          // Map Puter response to OpenAI format so LangChain can parse it
+          let finishReason = 'stop';
+          let content: any = puterResponse.message?.content || "";
+          let toolCallsResult: any = undefined;
+
+          if (puterResponse.message?.tool_calls && puterResponse.message.tool_calls.length > 0) {
+            finishReason = 'tool_calls';
+            toolCallsResult = puterResponse.message.tool_calls.map((tc: any, i: number) => ({
+              id: tc.id || `call_${i}`,
+              type: 'function',
+              function: {
+                name: tc.function?.name || tc.name,
+                arguments: typeof tc.function?.arguments === 'string' 
+                  ? tc.function.arguments 
+                  : JSON.stringify(tc.function?.arguments || tc.input || {})
+              }
+            }));
+            content = null;
+          }
+
+          const openAIResponse = {
+            id: "chatcmpl-" + Date.now(),
+            object: "chat.completion",
+            created: Math.floor(Date.now() / 1000),
+            model: body.model,
+            choices: [
+              {
+                index: 0,
+                message: {
+                  role: "assistant",
+                  content: content,
+                  ...(toolCallsResult ? { tool_calls: toolCallsResult } : {})
+                },
+                finish_reason: finishReason
+              }
+            ]
+          };
+
+          return new Response(JSON.stringify(openAIResponse), {
+            status: 200,
+            headers: { "Content-Type": "application/json" }
+          }) as any;
+        }
+      }
+    });
+  }
+
+  // Auto-detect Groq
+  if (apiKey.startsWith("gsk_")) {
+    baseUrl = baseUrl ?? "https://api.groq.com/openai/v1";
+    modelName = modelName.includes("llama") || modelName.includes("mixtral") ? modelName : "llama-3.3-70b-versatile";
+  }
+
+  // Auto-detect Google Gemini
+  if (apiKey.startsWith("AIza")) {
+    return new ChatGoogleGenerativeAI({
+      apiKey: apiKey,
+      modelName: modelName.includes("gemini") ? modelName : "gemini-2.5-flash",
+      temperature: options.temperature ?? 0,
+      maxOutputTokens: options.maxTokens,
+      maxRetries: 0,
+    });
+  }
+
+  return new ChatOpenAI({
+    model: modelName,
+    apiKey: apiKey,
     configuration: {
-      baseURL: process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
+      baseURL: baseUrl ?? "https://integrate.api.nvidia.com/v1",
     },
     temperature: options.temperature ?? 0,
     maxTokens: options.maxTokens,
     maxRetries: 0,
   });
+}
 
-  let fallbackLLM: ChatOpenAI | null = null;
-  if (process.env.NVIDIA_FALLBACK_API_KEY) {
-    fallbackLLM = new ChatOpenAI({
-      model: process.env.FALLBACK_MODEL ?? "meta/llama-3.3-70b-instruct",
-      apiKey: process.env.NVIDIA_FALLBACK_API_KEY,
-      configuration: {
-        baseURL: process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL ?? "https://integrate.api.nvidia.com/v1",
-      },
-      temperature: options.temperature ?? 0,
-      maxTokens: options.maxTokens,
-      maxRetries: 0,
-    });
-  }
+export function createLLMs(options: LLMOptions = {}) {
+  const primaryLLM = createLLMInstance(false, options) || new ChatOpenAI({
+    model: "meta/llama-3.3-70b-instruct",
+    apiKey: "dummy",
+    maxRetries: 0
+  });
+
+  const fallbackLLM = createLLMInstance(true, options);
 
   return { primaryLLM, fallbackLLM };
 }
