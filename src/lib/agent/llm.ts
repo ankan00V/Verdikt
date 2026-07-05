@@ -75,7 +75,8 @@ export async function invokeStringLLM(
         isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
       );
 
-      if (attempt < MAX_RETRIES) {
+      // Only retry if it's NOT a timeout (retrying timeouts crashes Vercel's 60s limit)
+      if (attempt < MAX_RETRIES && !isTimeout) {
         const backoffMs = 2000 * attempt;
         console.log(`[LLM] Retrying in ${backoffMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, backoffMs));
@@ -137,7 +138,8 @@ export async function invokeStructuredLLM<T>(
       );
 
       // ALWAYS retry up to MAX_RETRIES to ensure we try the fallback LLM even on 401 errors
-      if (attempt < MAX_RETRIES) {
+      // EXCEPT for timeouts, because retrying timeouts crashes Vercel's 60s limit
+      if (attempt < MAX_RETRIES && !isTimeout) {
         // Exponential backoff: 2s, 4s
         const backoffMs = 2000 * attempt;
         console.log(`[LLM] Retrying in ${backoffMs}ms...`);
