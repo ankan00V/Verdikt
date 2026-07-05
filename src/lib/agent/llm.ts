@@ -106,7 +106,7 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
   if (apiKey.startsWith("AIza")) {
     return new ChatGoogleGenerativeAI({
       apiKey: apiKey,
-      modelName: modelName.includes("gemini") ? modelName : "gemini-2.5-flash",
+      model: modelName.includes("gemini") ? modelName : "gemini-2.5-flash",
       temperature: options.temperature ?? 0,
       maxOutputTokens: options.maxTokens,
       maxRetries: 0,
