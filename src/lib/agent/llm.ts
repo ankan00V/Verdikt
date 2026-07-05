@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { BaseMessage } from "@langchain/core/messages";
 import { z } from "zod";
+import { init as puterInit } from "@heyputer/puter.js/src/init.cjs";
 
 export interface LLMOptions {
   temperature?: number;
@@ -27,9 +28,8 @@ function createLLMInstance(isFallback: boolean, options: LLMOptions) {
   // Auto-detect Puter API Token (usually a JWT or similar long string)
   // If the user sets PUTER_TOKEN, we intercept the LangChain fetch and route it through the puter.js SDK
   if (apiKey === process.env.PUTER_TOKEN && apiKey.length > 50) {
-    // We dynamically require puter to avoid issues if it's not installed
-    const { init } = require('@heyputer/puter.js/src/init.cjs');
-    const puter = init(apiKey);
+    // Use static import to ensure Vercel bundles this dependency
+    const puter = puterInit(apiKey);
 
     return new ChatOpenAI({
       model: modelName,
