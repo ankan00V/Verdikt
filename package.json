@@ -6,12 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
-    "get-puter-token": "node get-puter-token.js"
+    "lint": "eslint"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
-    "@heyputer/puter.js": "^2.5.4",
     "@langchain/anthropic": "^1.5.1",
     "@langchain/community": "^1.1.29",
     "@langchain/core": "^1.2.0",
