@@ -70,8 +70,8 @@ export async function synthesizeDecisionNode(
       compressedFindings: compressFindingsForSynthesis(state),
       dataFlags: {
         financialsAvailable: state.financialsAvailable,
-        newsCount: state.newsResults.length,
-        webResearchCount: state.webResearchResults.length,
+        newsCount: state.newsResults?.length ?? 0,
+        webResearchCount: state.webResearchResults?.length ?? 0,
         nonFatalErrors: state.errors,
       },
     },

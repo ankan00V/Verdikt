@@ -120,7 +120,7 @@ export async function invokeStructuredLLM<T>(
     ? fallbackLLM.withStructuredOutput(schema)
     : null;
 
-  const timeoutValueMs = options.timeoutMs || 15000;
+  const timeoutValueMs = options.timeoutMs || 45000;
   const MAX_RETRIES = 3;
 
   let lastError: any;
