@@ -92,39 +92,112 @@ npx vercel --prod
 
 Verdikt uses a **multi-node LangGraph.js StateGraph** — not a single LLM prompt, but a real directed graph where each node has a specific role.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        LANGGRAPH PIPELINE                       │
-│                                                                 │
-│  START                                                          │
-│    │                                                            │
-│    ▼                                                            │
-│  resolve_ticker  ────────── LLM: maps company name → ticker     │
-│    │                                                            │
-│    ├──────────────────────┬───────────────────┐                  │
-│    ▼                      ▼                   ▼                  │
-│  fetch_financials    fetch_news      fetch_web_research          │
-│  (Yahoo Finance)     (Tavily)        (Tavily)                   │
-│    │                      │                   │                  │
-│    └──────────────────────┴───────────────────┘                  │
-│                           │                                     │
-│                           ▼                                     │
-│                      gather_data  ──── fan-in sync point         │
-│                           │                                     │
-│    ┌──────────────────────┼───────────────────┐                  │
-│    ▼                      ▼                   ▼                  │
-│  analyze_fundamentals  analyze_sentiment  analyze_competitive    │
-│  (LLM + Zod Schema)   (LLM + Zod)       (LLM + Zod)           │
-│    │                      │                   │                  │
-│    └──────────────────────┴───────────────────┘                  │
-│                           │                                     │
-│                           ▼                                     │
-│                  synthesize_decision                             │
-│                  (LLM: INVEST/PASS + confidence + reasoning)    │
-│                           │                                     │
-│                           ▼                                     │
-│                          END                                    │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TD
+
+subgraph group_client["Research UI"]
+  node_landing["Landing page<br/>Next.js page<br/>[page.tsx]"]
+  node_console["Research console<br/>Next.js page<br/>[page.tsx]"]
+  node_research_hook["SSE research hook<br/>client stream hook<br/>[useResearch.ts]"]
+  node_console_views["Result views<br/>console components<br/>[NodeTracker.tsx]"]
+  node_client_types["Research types<br/>shared frontend types<br/>[researchTypes.ts]"]
+end
+
+subgraph group_api["Server Runtime"]
+  node_research_api{{"Research SSE route<br/>Next.js API route<br/>[route.ts]"}}
+  node_redis_cache[("Redis cache<br/>result cache<br/>[redis.ts]")]
+  node_checkpoint_saver[("Upstash checkpoint saver<br/>LangGraph persistence<br/>[upstash-saver.ts]")]
+end
+
+subgraph group_pipeline["Agent Pipeline"]
+  node_graph{{"Research StateGraph<br/>LangGraph orchestration<br/>[graph.ts]"}}
+  node_state["Shared graph state<br/>typed state<br/>[state.ts]"]
+  node_resolve_ticker["Resolve ticker<br/>agent node<br/>[resolve-ticker.ts]"]
+  node_financials["Fetch financials<br/>retrieval node"]
+  node_news["Fetch news<br/>retrieval node<br/>[fetch-news.ts]"]
+  node_web_research["Fetch web research<br/>retrieval node"]
+  node_gather{{"Gather data<br/>fan-in node<br/>[gather-data.ts]"}}
+  node_fundamentals["Analyze fundamentals<br/>LLM analysis node"]
+  node_sentiment["Analyze sentiment<br/>LLM analysis node"]
+  node_competitive["Analyze competitive<br/>LLM analysis node"]
+  node_decision{{"Synthesize decision<br/>LLM synthesis node"}}
+  node_schemas["Output schemas<br/>Zod contracts<br/>[schemas.ts]"]
+  node_llm["LLM gateway<br/>resilient inference client<br/>[llm.ts]"]
+end
+
+subgraph group_services["External Services"]
+  node_market_sources["Yahoo Finance<br/>market data service"]
+  node_tavily["Tavily<br/>search service"]
+  node_nim["NVIDIA NIM / Llama<br/>model provider"]
+end
+
+node_landing -->|"opens research"| node_console
+node_console -->|"starts and monitors run"| node_research_hook
+node_research_hook -->|"SSE request"| node_research_api
+node_research_hook -->|"streamed updates"| node_console_views
+node_client_types -.->|"types"| node_research_hook
+node_client_types -.->|"types"| node_console_views
+node_research_api -->|"execute or resume"| node_graph
+node_research_api -->|"load/save checkpoints"| node_checkpoint_saver
+node_graph -->|"reads and updates"| node_state
+node_graph -->|"first stage"| node_resolve_ticker
+node_resolve_ticker -->|"ticker fan-out"| node_financials
+node_resolve_ticker -->|"ticker fan-out"| node_news
+node_resolve_ticker -->|"ticker fan-out"| node_web_research
+node_financials -->|"live company data"| node_market_sources
+node_news -->|"recent news search"| node_tavily
+node_web_research -->|"competitive web search"| node_tavily
+node_financials -->|"financial evidence"| node_gather
+node_news -->|"news evidence"| node_gather
+node_web_research -->|"web evidence"| node_gather
+node_gather -->|"analyze"| node_fundamentals
+node_gather -->|"analyze"| node_sentiment
+node_gather -->|"analyze"| node_competitive
+node_fundamentals -->|"fundamental assessment"| node_decision
+node_sentiment -->|"sentiment assessment"| node_decision
+node_competitive -->|"competitive assessment"| node_decision
+node_fundamentals -->|"structured inference"| node_llm
+node_sentiment -->|"structured inference"| node_llm
+node_competitive -->|"structured inference"| node_llm
+node_decision -->|"structured synthesis"| node_llm
+node_llm -->|"model invocation"| node_nim
+node_llm -->|"validates outputs"| node_schemas
+node_graph -.->|"cache node results"| node_redis_cache
+node_decision -->|"verdict and state events"| node_research_api
+
+click node_landing "https://github.com/ankan00v/verdikt/blob/main/src/app/page.tsx"
+click node_console "https://github.com/ankan00v/verdikt/blob/main/src/app/research/page.tsx"
+click node_research_hook "https://github.com/ankan00v/verdikt/blob/main/src/lib/useResearch.ts"
+click node_console_views "https://github.com/ankan00v/verdikt/blob/main/src/components/verdikt/NodeTracker.tsx"
+click node_client_types "https://github.com/ankan00v/verdikt/blob/main/src/lib/researchTypes.ts"
+click node_research_api "https://github.com/ankan00v/verdikt/blob/main/src/app/api/research/route.ts"
+click node_graph "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/graph.ts"
+click node_state "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/state.ts"
+click node_resolve_ticker "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/resolve-ticker.ts"
+click node_financials "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-financials.ts"
+click node_news "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-news.ts"
+click node_web_research "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-web-research.ts"
+click node_gather "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/gather-data.ts"
+click node_fundamentals "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-fundamentals.ts"
+click node_sentiment "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-sentiment.ts"
+click node_competitive "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-competitive.ts"
+click node_decision "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/synthesize-decision.ts"
+click node_schemas "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/schemas.ts"
+click node_llm "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/llm.ts"
+click node_redis_cache "https://github.com/ankan00v/verdikt/blob/main/src/lib/redis.ts"
+click node_checkpoint_saver "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/upstash-saver.ts"
+
+classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
+classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
+classDef toneAmber fill:#fef3c7,stroke:#d97706,stroke-width:1.5px,color:#78350f
+classDef toneMint fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#14532d
+classDef toneRose fill:#ffe4e6,stroke:#e11d48,stroke-width:1.5px,color:#881337
+classDef toneIndigo fill:#e0e7ff,stroke:#4f46e5,stroke-width:1.5px,color:#312e81
+classDef toneTeal fill:#ccfbf1,stroke:#0f766e,stroke-width:1.5px,color:#134e4a
+class node_landing,node_console,node_research_hook,node_console_views,node_client_types toneBlue
+class node_research_api,node_redis_cache,node_checkpoint_saver toneAmber
+class node_graph,node_state,node_resolve_ticker,node_financials,node_news,node_web_research,node_gather,node_fundamentals,node_sentiment,node_competitive,node_decision,node_schemas,node_llm toneMint
+class node_market_sources,node_tavily,node_nim toneRose
 ```
 
 ### Tech Stack
