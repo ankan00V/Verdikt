@@ -26,10 +26,20 @@ Do they plausibly match the same entity? For example:
 Reply ONLY with "YES" or "NO".`;
 
   try {
-    const response = await invokeStringLLM(prompt, { maxTokens: 10, temperature: 0, timeoutMs: 5000 });
-    const text = response.toUpperCase();
+    const response = await invokeStringLLM(prompt, { maxTokens: 512, temperature: 0, timeoutMs: 10000 });
+    const text = response.trim().toUpperCase();
     console.log(`[verify_identity] LLM verification for "${companyName}" & "${website}": ${text}`);
-    return text.includes("YES");
+
+    // Reject ONLY on an explicit NO. An empty or ambiguous reply means the
+    // guard could not form an opinion, and a guard with no opinion must not be
+    // the thing that ends the run — the user gets a flat "your name and website
+    // do not match" for a pairing that is actually fine.
+    if (!text) {
+      console.warn("[verify_identity] Empty response, allowing through");
+      return true;
+    }
+    if (text.includes("NO") && !text.includes("YES")) return false;
+    return true;
   } catch (error) {
     console.error("[verify_identity] LLM validation error:", error);
     return true; // Fallback to allowing it if API fails
@@ -78,7 +88,7 @@ ${content.slice(0, 2000)}`;
 
   let candidates: string[] = [];
   try {
-    const response = await invokeStringLLM(prompt, { maxTokens: 50, temperature: 0, timeoutMs: 15000 });
+    const response = await invokeStringLLM(prompt, { maxTokens: 512, temperature: 0, timeoutMs: 20000 });
     const contentStr = response;
     console.log("[resolve_ticker] LLM response:", contentStr);
     // Parse JSON array

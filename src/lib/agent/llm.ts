@@ -60,12 +60,23 @@ function createLLMForAttempt(attemptIndex: number, options: LLMOptions) {
   const apiKey = keys[attemptIndex % keys.length];
   const model = attemptIndex % 2 === 0 ? PRIMARY_MODEL : FALLBACK_MODEL;
 
+  // Reasoning models (gpt-oss, and Qwen in thinking mode) spend tokens on
+  // internal reasoning BEFORE emitting any content. A tight budget tuned for a
+  // non-reasoning model gets consumed entirely by that reasoning: the call
+  // returns finish_reason "length" with content "", which reads downstream as a
+  // confident empty answer rather than a failure. Enforce a floor so a caller
+  // asking for a 3-token "YES"/"NO" still leaves room to think.
+  const REASONING_HEADROOM = 512;
+  const maxTokens = options.maxTokens
+    ? Math.max(options.maxTokens, REASONING_HEADROOM)
+    : undefined;
+
   return new ChatOpenAI({
     model,
     apiKey,
     configuration: { baseURL: GROQ_BASE_URL },
     temperature: options.temperature ?? 0,
-    maxTokens: options.maxTokens,
+    maxTokens,
     maxRetries: 0, // retries are orchestrated here, not inside the SDK
   });
 }
