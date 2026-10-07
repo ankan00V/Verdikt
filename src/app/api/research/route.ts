@@ -57,17 +57,28 @@ function validateCompanyName(company: unknown): string | null {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest): Promise<Response> {
-  // Rate limiting check
+  // Rate limiting check.
+  //
+  // This fails OPEN on purpose. The limiter lives in Upstash, and if that host
+  // is unreachable — deleted database, expired free tier, network blip — an
+  // unguarded throw here escapes the handler entirely. Next.js then answers
+  // with a bodyless 500, which the client cannot parse, so the user sees a
+  // generic "Failed to start research" and no node ever starts. Losing rate
+  // limiting is a far smaller problem than losing the whole endpoint.
   if (ratelimit) {
-    // Extract IP from standard proxy headers
-    const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
-    const { success } = await ratelimit.limit(ip);
-    
-    if (!success) {
-      return new Response(
-        JSON.stringify({ error: "Rate limit exceeded. Maximum 10 research requests per hour." }),
-        { status: 429, headers: { "Content-Type": "application/json" } }
-      );
+    try {
+      // Extract IP from standard proxy headers
+      const ip = req.headers.get("x-forwarded-for") ?? "127.0.0.1";
+      const { success } = await ratelimit.limit(ip);
+
+      if (!success) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded. Maximum 10 research requests per hour." }),
+          { status: 429, headers: { "Content-Type": "application/json" } }
+        );
+      }
+    } catch (err) {
+      console.error("[/api/research] Rate limiter unavailable, allowing request:", err);
     }
   }
 
