@@ -4,7 +4,7 @@
 
 | | |
 |---|---|
-| **Repository** | https://github.com/ankan00V/Verdikt1 |
+| **Repository** | https://github.com/ankan00V/Verdikt |
 | **Live demo** | https://verdikt-ashy.vercel.app/research |
 | **Demo video** | https://www.loom.com/share/93450b55bd7d4414ae6ade2cabcb828b |
 | **Team** | Solo — Ankan Ghosh |
@@ -525,8 +525,8 @@ The honest summary: **this deployment is correct at ~100 runs/day and would need
 ## 15. Running it
 
 ```bash
-git clone https://github.com/ankan00V/Verdikt1.git
-cd Verdikt1
+git clone https://github.com/ankan00V/Verdikt.git
+cd Verdikt
 npm install
 cp .env.example .env.local   # fill in NVIDIA_NIM_API_KEY and TAVILY_API_KEY
 npm run dev

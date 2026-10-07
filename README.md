@@ -1,7 +1,7 @@
 # Verdikt — AI Investment Research Agent
 
 > **Live Demo:** [verdikt-ashy.vercel.app/research](https://verdikt-ashy.vercel.app/research)  
-> **GitHub:** [github.com/ankan00V/Verdikt1](https://github.com/ankan00V/Verdikt1)  
+> **GitHub:** [github.com/ankan00V/Verdikt](https://github.com/ankan00V/Verdikt)  
 > **Demo video:** [loom.com/share/93450b55…](https://www.loom.com/share/93450b55bd7d4414ae6ade2cabcb828b)  
 > **Full submission document:** [SUBMISSION.md](./SUBMISSION.md) — architecture diagram, cost model, failure log, and the five questions
 
@@ -34,8 +34,8 @@ Unlike a single-prompt "ask the LLM" approach, Verdikt implements a **real multi
 ### Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/ankan00V/Verdikt1.git
-cd Verdikt1
+git clone https://github.com/ankan00V/Verdikt.git
+cd Verdikt
 npm install
 ```
 
@@ -167,27 +167,27 @@ node_llm -->|"validates outputs"| node_schemas
 node_graph -.->|"cache node results"| node_redis_cache
 node_decision -->|"verdict and state events"| node_research_api
 
-click node_landing "https://github.com/ankan00V/Verdikt1/blob/main/src/app/page.tsx"
-click node_console "https://github.com/ankan00V/Verdikt1/blob/main/src/app/research/page.tsx"
-click node_research_hook "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/useResearch.ts"
-click node_console_views "https://github.com/ankan00V/Verdikt1/blob/main/src/components/verdikt/NodeTracker.tsx"
-click node_client_types "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/researchTypes.ts"
-click node_research_api "https://github.com/ankan00V/Verdikt1/blob/main/src/app/api/research/route.ts"
-click node_graph "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/graph.ts"
-click node_state "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/state.ts"
-click node_resolve_ticker "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/resolve-ticker.ts"
-click node_financials "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-financials.ts"
-click node_news "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-news.ts"
-click node_web_research "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-web-research.ts"
-click node_gather "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/gather-data.ts"
-click node_fundamentals "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-fundamentals.ts"
-click node_sentiment "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-sentiment.ts"
-click node_competitive "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-competitive.ts"
-click node_decision "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/synthesize-decision.ts"
-click node_schemas "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/schemas.ts"
-click node_llm "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/llm.ts"
-click node_redis_cache "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/redis.ts"
-click node_checkpoint_saver "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/upstash-saver.ts"
+click node_landing "https://github.com/ankan00V/Verdikt/blob/main/src/app/page.tsx"
+click node_console "https://github.com/ankan00V/Verdikt/blob/main/src/app/research/page.tsx"
+click node_research_hook "https://github.com/ankan00V/Verdikt/blob/main/src/lib/useResearch.ts"
+click node_console_views "https://github.com/ankan00V/Verdikt/blob/main/src/components/verdikt/NodeTracker.tsx"
+click node_client_types "https://github.com/ankan00V/Verdikt/blob/main/src/lib/researchTypes.ts"
+click node_research_api "https://github.com/ankan00V/Verdikt/blob/main/src/app/api/research/route.ts"
+click node_graph "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/graph.ts"
+click node_state "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/state.ts"
+click node_resolve_ticker "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/resolve-ticker.ts"
+click node_financials "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/fetch-financials.ts"
+click node_news "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/fetch-news.ts"
+click node_web_research "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/fetch-web-research.ts"
+click node_gather "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/gather-data.ts"
+click node_fundamentals "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/analyze-fundamentals.ts"
+click node_sentiment "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/analyze-sentiment.ts"
+click node_competitive "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/analyze-competitive.ts"
+click node_decision "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/nodes/synthesize-decision.ts"
+click node_schemas "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/schemas.ts"
+click node_llm "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/llm.ts"
+click node_redis_cache "https://github.com/ankan00V/Verdikt/blob/main/src/lib/redis.ts"
+click node_checkpoint_saver "https://github.com/ankan00V/Verdikt/blob/main/src/lib/agent/upstash-saver.ts"
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
