@@ -1,5 +1,24 @@
+/**
+ * agent/llm.ts
+ *
+ * Resilient inference client, backed by Groq's OpenAI-compatible endpoint.
+ *
+ * Two things make this more than a wrapper around an API call:
+ *
+ *   1. Key rotation. GROQ_API_KEYS holds a comma-separated pool. Each retry
+ *      advances to the next key, so a per-key rate limit (429) costs one
+ *      attempt rather than failing the whole node.
+ *
+ *   2. Two genuinely different models. Attempts alternate between a primary
+ *      and a structurally different fallback model — not the same model called
+ *      twice. If one model refuses a schema or returns nonsense, the next
+ *      attempt is a different architecture, not a retry of the same thing.
+ *
+ * Timeouts are deliberately NOT retried: a retried timeout burns the serverless
+ * wall-clock budget twice over and almost never succeeds the second time.
+ */
+
 import { ChatOpenAI } from "@langchain/openai";
-import { BaseMessage } from "@langchain/core/messages";
 import { z } from "zod";
 
 export interface LLMOptions {
@@ -8,105 +27,145 @@ export interface LLMOptions {
   timeoutMs?: number;
 }
 
-function createLLMInstance(isFallback: boolean, options: LLMOptions) {
-  const apiKey = isFallback 
-    ? (process.env.FALLBACK_API_KEY ?? process.env.NVIDIA_FALLBACK_API_KEY)
-    : (process.env.PRIMARY_API_KEY ?? process.env.NVIDIA_NIM_API_KEY);
-  
-  let baseUrl = isFallback 
-    ? (process.env.FALLBACK_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL) 
-    : (process.env.PRIMARY_BASE_URL ?? process.env.NVIDIA_NIM_BASE_URL);
-    
-  let modelName = isFallback 
-    ? (process.env.FALLBACK_MODEL ?? "meta-llama/llama-3.1-70b-instruct") 
-    : (process.env.PRIMARY_MODEL ?? "meta-llama/llama-3.1-70b-instruct");
-  
-  if (!apiKey) return null;
+const GROQ_BASE_URL =
+  process.env.GROQ_BASE_URL ?? "https://api.groq.com/openai/v1";
 
-  // If we are using NVIDIA NIM (default base URL), the model prefix must be "meta/" not "meta-llama/"
-  const isNvidia = (baseUrl ?? "https://integrate.api.nvidia.com/v1").includes("nvidia");
-  if (isNvidia && modelName.startsWith("meta-llama/")) {
-    modelName = modelName.replace("meta-llama/", "meta/");
-  }
+// Two different model families, so the fallback is a real second opinion.
+const PRIMARY_MODEL =
+  process.env.GROQ_PRIMARY_MODEL ?? "openai/gpt-oss-120b";
+const FALLBACK_MODEL =
+  process.env.GROQ_FALLBACK_MODEL ?? "qwen/qwen3.8-27b";
+
+/**
+ * Reads the key pool. Accepts either GROQ_API_KEYS (comma-separated) or a
+ * single GROQ_API_KEY, so a one-key deployment needs no special casing.
+ */
+export function getApiKeys(): string[] {
+  const raw = process.env.GROQ_API_KEYS ?? process.env.GROQ_API_KEY ?? "";
+  return raw
+    .split(",")
+    .map((k) => k.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Builds the client for a given attempt. Even attempts use the primary model,
+ * odd attempts the fallback; the key advances every attempt independently, so
+ * with 4 keys and 2 models no two attempts repeat the same pair.
+ */
+function createLLMForAttempt(attemptIndex: number, options: LLMOptions) {
+  const keys = getApiKeys();
+  if (keys.length === 0) return null;
+
+  const apiKey = keys[attemptIndex % keys.length];
+  const model = attemptIndex % 2 === 0 ? PRIMARY_MODEL : FALLBACK_MODEL;
 
   return new ChatOpenAI({
-    model: modelName,
-    apiKey: apiKey,
-    configuration: {
-      baseURL: baseUrl ?? "https://integrate.api.nvidia.com/v1",
-    },
+    model,
+    apiKey,
+    configuration: { baseURL: GROQ_BASE_URL },
     temperature: options.temperature ?? 0,
     maxTokens: options.maxTokens,
-    maxRetries: 0,
+    maxRetries: 0, // retries are orchestrated here, not inside the SDK
   });
 }
 
+/** Number of attempts: one per key, but at least 2 so the fallback model is always tried. */
+function attemptCount(): number {
+  return Math.max(2, Math.min(getApiKeys().length, 4));
+}
+
+function describeAttempt(attemptIndex: number): string {
+  const model = attemptIndex % 2 === 0 ? PRIMARY_MODEL : FALLBACK_MODEL;
+  return `key#${attemptIndex % Math.max(getApiKeys().length, 1)} ${model}`;
+}
+
+/**
+ * Shared retry loop. `run` receives a configured client and returns the result.
+ */
+async function withRetries<T>(
+  label: string,
+  options: LLMOptions,
+  timeoutDefaultMs: number,
+  run: (llm: ChatOpenAI, signal: AbortSignal) => Promise<T>
+): Promise<T> {
+  const keys = getApiKeys();
+  if (keys.length === 0) {
+    throw new Error(
+      "No Groq API key configured. Set GROQ_API_KEYS (comma-separated) or GROQ_API_KEY."
+    );
+  }
+
+  const timeoutValueMs = options.timeoutMs ?? timeoutDefaultMs;
+  const maxAttempts = attemptCount();
+  let lastError: unknown;
+
+  for (let i = 0; i < maxAttempts; i++) {
+    const llm = createLLMForAttempt(i, options);
+    if (!llm) break;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutValueMs);
+
+    try {
+      console.log(
+        `[LLM] ${label} attempt ${i + 1}/${maxAttempts} (${describeAttempt(i)}, timeout=${timeoutValueMs}ms)`
+      );
+      const result = await run(llm, controller.signal);
+      clearTimeout(timeoutId);
+      return result;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      lastError = error;
+
+      const isTimeout =
+        error?.name === "AbortError" || controller.signal.aborted;
+
+      console.error(
+        `[LLM] ${label} attempt ${i + 1}/${maxAttempts} failed (${describeAttempt(i)}):`,
+        isTimeout
+          ? `Timeout after ${timeoutValueMs}ms`
+          : String(error?.message).slice(0, 200)
+      );
+
+      // A timeout means we are out of wall-clock budget, not that the key is
+      // bad. Retrying spends the budget again for the same likely outcome.
+      if (isTimeout) {
+        throw new Error(
+          `LLM request timed out after ${timeoutValueMs}ms (attempt ${i + 1}/${maxAttempts})`
+        );
+      }
+
+      if (i < maxAttempts - 1) {
+        // Short backoff only — the next attempt uses a different key, so we are
+        // not waiting out a rate limit on the key that just failed.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        continue;
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`LLM ${label} failed after ${attemptCount()} attempts`);
+}
+
+/** Back-compat helper: some call sites still construct clients directly. */
 export function createLLMs(options: LLMOptions = {}) {
-  const primaryLLM = createLLMInstance(false, options) || new ChatOpenAI({
-    model: "meta/llama-3.3-70b-instruct",
-    apiKey: "dummy",
-    maxRetries: 0
-  });
-
-  const fallbackLLM = createLLMInstance(true, options);
-
-  return { primaryLLM, fallbackLLM };
+  return {
+    primaryLLM: createLLMForAttempt(0, options),
+    fallbackLLM: createLLMForAttempt(1, options),
+  };
 }
 
 export async function invokeStringLLM(
   prompt: any,
   options: LLMOptions = {}
 ): Promise<string> {
-  const { primaryLLM, fallbackLLM } = createLLMs(options);
-
-  const timeoutValueMs = options.timeoutMs || 25000;
-  const MAX_RETRIES = 3;
-
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const llm = attempt % 2 === 1 || !fallbackLLM
-      ? primaryLLM
-      : fallbackLLM;
-    const label = attempt % 2 === 1 || !fallbackLLM ? "primary" : "fallback";
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeoutValueMs);
-
-    try {
-      console.log(`[LLM] String call attempt ${attempt}/${MAX_RETRIES} (${label}, timeout=${timeoutValueMs}ms)`);
-      const response = await llm.invoke(prompt, { signal: controller.signal });
-      clearTimeout(timeoutId);
-      return (response.content as string).trim();
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      lastError = error;
-
-      const isTimeout = error.name === "AbortError" || controller.signal.aborted;
-
-      console.error(
-        `[LLM] String call attempt ${attempt}/${MAX_RETRIES} failed (${label}):`,
-        isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
-      );
-
-      // Only retry if it's NOT a timeout (retrying timeouts crashes Vercel's 60s limit)
-      if (attempt < MAX_RETRIES && !isTimeout) {
-        const backoffMs = 2000 * attempt;
-        console.log(`[LLM] Retrying in ${backoffMs}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        continue;
-      }
-
-      if (isTimeout) {
-        throw new Error(`LLM API request timed out after ${timeoutValueMs}ms (${MAX_RETRIES} attempts)`);
-      }
-      throw error;
-    }
-  }
-
-  throw lastError;
+  return withRetries("String call", options, 15000, async (llm, signal) => {
+    const response = await llm.invoke(prompt, { signal });
+    return (response.content as string).trim();
+  });
 }
 
 export async function invokeStructuredLLM<T>(
@@ -114,62 +173,8 @@ export async function invokeStructuredLLM<T>(
   schema: z.ZodType<T>,
   options: LLMOptions = {}
 ): Promise<T> {
-  const { primaryLLM, fallbackLLM } = createLLMs(options);
-  const structuredPrimary = primaryLLM.withStructuredOutput(schema);
-  const structuredFallback = fallbackLLM
-    ? fallbackLLM.withStructuredOutput(schema)
-    : null;
-
-  const timeoutValueMs = options.timeoutMs || 45000;
-  const MAX_RETRIES = 3;
-
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    // Alternate between primary and fallback on retries to spread load
-    const llm = attempt % 2 === 1 || !structuredFallback
-      ? structuredPrimary
-      : structuredFallback;
-    const label = attempt % 2 === 1 || !structuredFallback ? "primary" : "fallback";
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      controller.abort();
-    }, timeoutValueMs);
-
-    try {
-      console.log(`[LLM] Structured call attempt ${attempt}/${MAX_RETRIES} (${label}, timeout=${timeoutValueMs}ms)`);
-      const result = (await llm.invoke(prompt, { signal: controller.signal })) as T;
-      clearTimeout(timeoutId);
-      return result;
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      lastError = error;
-
-      const isTimeout = error.name === "AbortError" || controller.signal.aborted;
-
-      console.error(
-        `[LLM] Structured call attempt ${attempt}/${MAX_RETRIES} failed (${label}):`,
-        isTimeout ? `Timeout after ${timeoutValueMs}ms` : error.message?.slice(0, 200)
-      );
-
-      // ALWAYS retry up to MAX_RETRIES to ensure we try the fallback LLM even on 401 errors
-      // EXCEPT for timeouts, because retrying timeouts crashes Vercel's 60s limit
-      if (attempt < MAX_RETRIES && !isTimeout) {
-        // Exponential backoff: 2s, 4s
-        const backoffMs = 2000 * attempt;
-        console.log(`[LLM] Retrying in ${backoffMs}ms...`);
-        await new Promise((resolve) => setTimeout(resolve, backoffMs));
-        continue;
-      }
-
-      // Non-retryable error or last attempt — throw immediately
-      if (isTimeout) {
-        throw new Error(`LLM API request timed out after ${timeoutValueMs}ms (${MAX_RETRIES} attempts)`);
-      }
-      throw error;
-    }
-  }
-
-  throw lastError;
+  return withRetries("Structured call", options, 20000, async (llm, signal) => {
+    const structured = llm.withStructuredOutput(schema);
+    return (await structured.invoke(prompt, { signal })) as T;
+  });
 }

@@ -107,7 +107,13 @@ export async function synthesizeDecisionNode(
     ];
     const result = await invokeStructuredLLM(prompt, DecisionSchema, { temperature: 0 });
 
-    return { decision: result };
+    // The schema asks for 0-100, but models frequently answer on a 0-1 scale
+    // regardless. The UI renders confidence as a fraction, so normalise here —
+    // otherwise a confident verdict renders as "7500%".
+    const raw = Number(result.confidence) || 0;
+    const confidence = Math.min(1, Math.max(0, raw > 1 ? raw / 100 : raw));
+
+    return { decision: { ...result, confidence } };
   } catch (err) {
     console.error("[synthesize_decision] Error:", err);
     return {

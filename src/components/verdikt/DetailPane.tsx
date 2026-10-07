@@ -322,7 +322,7 @@ function renderFindingDetail(nodeId: string, output: Record<string, any>, latest
       return (
         <div className="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]">
           <p className="text-sm text-white/80">
-            Verdict: <span className="font-bold">{output.decision?.verdict || "N/A"}</span> · Confidence: {output.decision?.confidence || 0}%
+            Verdict: <span className="font-bold">{output.decision?.verdict || "N/A"}</span> · Confidence: {Math.round((output.decision?.confidence || 0) * 100)}%
           </p>
           <p className="text-xs text-white/50 mt-2">See verdict pane for full reasoning.</p>
         </div>

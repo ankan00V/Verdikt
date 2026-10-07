@@ -1,7 +1,9 @@
 # Verdikt — AI Investment Research Agent
 
-> **Live Demo:** [verdikt-ashy.vercel.app](https://verdikt-ashy.vercel.app)  
-> **GitHub:** [github.com/ankan00V/Verdikt](https://github.com/ankan00V/Verdikt)
+> **Live Demo:** [verdikt-ashy.vercel.app/research](https://verdikt-ashy.vercel.app/research)  
+> **GitHub:** [github.com/ankan00V/Verdikt1](https://github.com/ankan00V/Verdikt1)  
+> **Demo video:** [loom.com/share/93450b55…](https://www.loom.com/share/93450b55bd7d4414ae6ade2cabcb828b)  
+> **Full submission document:** [SUBMISSION.md](./SUBMISSION.md) — architecture diagram, cost model, failure log, and the five questions
 
 ---
 
@@ -15,7 +17,7 @@ Unlike a single-prompt "ask the LLM" approach, Verdikt implements a **real multi
 - **Real financial data** from Yahoo Finance (income statements, key metrics, ratios, company profiles)
 - **Live news analysis** via Tavily (recent headlines, sentiment, controversies)
 - **Competitive landscape research** via Tavily web search (moat assessment, market position, key competitors)
-- **Structured LLM analysis** using NVIDIA NIM (Llama 3.3 70B) with Zod schema enforcement
+- **Structured LLM analysis** using NVIDIA NIM (Llama 3.1 70B) with Zod schema enforcement
 - **Real-time streaming UI** — the user watches each research stage complete live via Server-Sent Events
 - **Automatic retry with exponential backoff** — production-grade resilience against API timeouts and rate limits
 - **Persistent checkpointing via Upstash Redis** — survives Vercel's 60-second serverless timeout
@@ -32,8 +34,8 @@ Unlike a single-prompt "ask the LLM" approach, Verdikt implements a **real multi
 ### Step 1: Clone and Install
 
 ```bash
-git clone https://github.com/ankan00V/Verdikt.git
-cd Verdikt
+git clone https://github.com/ankan00V/Verdikt1.git
+cd Verdikt1
 npm install
 ```
 
@@ -56,7 +58,7 @@ UPSTASH_REDIS_REST_TOKEN=your_upstash_token
 # Optional — Yahoo Finance Proxy (needed on Vercel to bypass IP blocks)
 YAHOO_PROXY_URL=http://username:password@proxy_ip:port
 
-# Dev only — mock mode (replays real captured API responses)
+# Reserved — mock mode flag. Declared but NOT yet implemented (see SUBMISSION.md §13.8)
 USE_MOCK_DATA=false
 ```
 
@@ -165,27 +167,27 @@ node_llm -->|"validates outputs"| node_schemas
 node_graph -.->|"cache node results"| node_redis_cache
 node_decision -->|"verdict and state events"| node_research_api
 
-click node_landing "https://github.com/ankan00v/verdikt/blob/main/src/app/page.tsx"
-click node_console "https://github.com/ankan00v/verdikt/blob/main/src/app/research/page.tsx"
-click node_research_hook "https://github.com/ankan00v/verdikt/blob/main/src/lib/useResearch.ts"
-click node_console_views "https://github.com/ankan00v/verdikt/blob/main/src/components/verdikt/NodeTracker.tsx"
-click node_client_types "https://github.com/ankan00v/verdikt/blob/main/src/lib/researchTypes.ts"
-click node_research_api "https://github.com/ankan00v/verdikt/blob/main/src/app/api/research/route.ts"
-click node_graph "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/graph.ts"
-click node_state "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/state.ts"
-click node_resolve_ticker "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/resolve-ticker.ts"
-click node_financials "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-financials.ts"
-click node_news "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-news.ts"
-click node_web_research "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/fetch-web-research.ts"
-click node_gather "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/gather-data.ts"
-click node_fundamentals "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-fundamentals.ts"
-click node_sentiment "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-sentiment.ts"
-click node_competitive "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/analyze-competitive.ts"
-click node_decision "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/nodes/synthesize-decision.ts"
-click node_schemas "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/schemas.ts"
-click node_llm "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/llm.ts"
-click node_redis_cache "https://github.com/ankan00v/verdikt/blob/main/src/lib/redis.ts"
-click node_checkpoint_saver "https://github.com/ankan00v/verdikt/blob/main/src/lib/agent/upstash-saver.ts"
+click node_landing "https://github.com/ankan00V/Verdikt1/blob/main/src/app/page.tsx"
+click node_console "https://github.com/ankan00V/Verdikt1/blob/main/src/app/research/page.tsx"
+click node_research_hook "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/useResearch.ts"
+click node_console_views "https://github.com/ankan00V/Verdikt1/blob/main/src/components/verdikt/NodeTracker.tsx"
+click node_client_types "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/researchTypes.ts"
+click node_research_api "https://github.com/ankan00V/Verdikt1/blob/main/src/app/api/research/route.ts"
+click node_graph "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/graph.ts"
+click node_state "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/state.ts"
+click node_resolve_ticker "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/resolve-ticker.ts"
+click node_financials "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-financials.ts"
+click node_news "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-news.ts"
+click node_web_research "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/fetch-web-research.ts"
+click node_gather "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/gather-data.ts"
+click node_fundamentals "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-fundamentals.ts"
+click node_sentiment "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-sentiment.ts"
+click node_competitive "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/analyze-competitive.ts"
+click node_decision "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/nodes/synthesize-decision.ts"
+click node_schemas "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/schemas.ts"
+click node_llm "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/llm.ts"
+click node_redis_cache "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/redis.ts"
+click node_checkpoint_saver "https://github.com/ankan00V/Verdikt1/blob/main/src/lib/agent/upstash-saver.ts"
 
 classDef toneNeutral fill:#f8fafc,stroke:#334155,stroke-width:1.5px,color:#0f172a
 classDef toneBlue fill:#dbeafe,stroke:#2563eb,stroke-width:1.5px,color:#172554
@@ -206,7 +208,7 @@ class node_market_sources,node_tavily,node_nim toneRose
 |-------|-----------|---------|
 | **Framework** | Next.js 16 (App Router) | Full-stack React with API routes |
 | **Agent Pipeline** | LangGraph.js (StateGraph) | DAG execution, parallel fan-out/fan-in, checkpointing |
-| **LLM** | NVIDIA NIM — `meta/llama-3.3-70b-instruct` | Structured output via `.withStructuredOutput()` + Zod schemas |
+| **LLM** | NVIDIA NIM — `meta/llama-3.1-70b-instruct` | Structured output via `.withStructuredOutput()` + Zod schemas |
 | **Financial Data** | `yahoo-finance2` | Income statements, key metrics, ratios, company profiles |
 | **News & Web Search** | Tavily API | Recent news, competitive landscape research |
 | **Schema Validation** | Zod v3 | Enforced structured output from all LLM nodes |
@@ -222,10 +224,10 @@ Every LLM analysis node uses `ChatOpenAI.withStructuredOutput(ZodSchema)` — no
 
 **2. Production-Grade Retry Logic**
 The `invokeStructuredLLM` function implements:
-- **50-second timeout** per attempt (matching Vercel's serverless limit)
-- **3 automatic retries** with exponential backoff (2s, 4s delays)
-- **API key rotation** — alternates between primary and fallback NVIDIA keys on each retry
-- **Smart retry classification** — only retries on timeouts, 429 rate limits, and connection resets
+- **45-second timeout** per structured attempt (25s for the small string calls), sized against Vercel's 60s function limit
+- **3 attempts** with exponential backoff (2s, 4s delays)
+- **API key rotation** — alternates between primary and fallback NVIDIA keys on each attempt
+- **Smart retry classification** — retries 429s, connection resets and auth failures, but **never retries a timeout**: three attempts at a 45s timeout is 135s inside a 60s budget, which kills the whole function instead of one node
 
 **3. Checkpoint Persistence (Vercel Timeout Survival)**
 Vercel serverless functions have a 60-second execution limit. The full Verdikt pipeline takes ~90-120 seconds. To handle this:
@@ -249,7 +251,7 @@ The research console is a 3-pane layout:
 | Decision | Rationale |
 |----------|-----------|
 | **LangGraph.js over a single-prompt approach** | A single LLM prompt could produce a verdict in one call. But the assignment asks for visible reasoning. A multi-node graph makes each stage independently inspectable — fundamentals analysis is a separate artifact from sentiment analysis. Failures are surfaced explicitly, not absorbed into a black box. |
-| **NVIDIA NIM (Llama 3.3 70B) over OpenAI/Claude** | Deliberate choice to avoid the most common submission approach. NIM provides OpenAI-compatible endpoints, supports native structured output via tool-calling, and is free-tier accessible. |
+| **NVIDIA NIM (Llama 3.1 70B) over OpenAI/Claude** | Deliberate choice to avoid the most common submission approach. NIM provides OpenAI-compatible endpoints, supports native structured output via tool-calling, and is free-tier accessible. |
 | **Yahoo Finance over FMP** | FMP deprecated free access to all fundamental endpoints (income statements, ratios, key metrics) in August 2025 — after the original assignment was written. Rather than fabricating data, I pivoted to `yahoo-finance2` (free, no API key needed, same data). The graph architecture is unchanged. |
 | **Tavily over SerpAPI** | Tavily is purpose-built for LLM agents — returns clean structured content, handles recency filtering natively for news, and integrates directly with LangChain. |
 | **Custom UpstashSaver over LangSmith Cloud** | Vercel's 60s timeout kills the pipeline mid-execution. Rather than using a paid LangSmith deployment, I built a custom `UpstashSaver` that extends `MemorySaver`, serializes checkpoint state with zlib compression, and persists to free-tier Upstash Redis. |
@@ -266,7 +268,7 @@ The research console is a 3-pane layout:
 
 ## Example Runs
 
-All examples below were captured from the live production deployment at [verdikt-ashy.vercel.app](https://verdikt-ashy.vercel.app) with real-time API calls.
+All examples below were captured from the live production deployment at [verdikt-ashy.vercel.app](https://verdikt-ashy.vercel.app/research) with real-time API calls.
 
 ### NVIDIA (NVDA) — Verdict: INVEST
 
@@ -381,7 +383,7 @@ src/
 ├── components/verdikt/
 │   ├── DetailPane.tsx              # Right pane: node detail + verdict stamp
 │   ├── FindingsFeed.tsx            # Center pane: live findings
-│   ├── PipelineTracker.tsx         # Left pane: node status tracker
+│   ├── NodeTracker.tsx                 # Left pane: node status tracker
 │   ├── Hero.tsx                    # Landing page hero section
 │   ├── FinalCTA.tsx                # Landing page CTA
 │   └── ...

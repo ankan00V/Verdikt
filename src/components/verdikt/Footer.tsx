@@ -8,7 +8,7 @@ export default function VerdiktFooter() {
           verdikt
         </p>
         <p className="text-xs text-white/40 mt-1 max-w-xs leading-[1.5]">
-          AI investment research agent. Powered by LangGraph, NVIDIA NIM, and
+          AI investment research agent. Powered by LangGraph, Groq, and
           real financial data.
         </p>
       </div>

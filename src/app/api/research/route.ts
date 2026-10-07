@@ -36,7 +36,10 @@ import { ratelimit } from "@/lib/ratelimit";
 import { UpstashSaver } from "@/lib/agent/upstash-saver";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60; // 60 seconds — Vercel Hobby plan maximum
+// 300s is the current Vercel default ceiling on all plans. The previous value
+// of 60 was killing the function mid-stream, which the client surfaced as a
+// bare "network error" with the pipeline frozen on the last running node.
+export const maxDuration = 300;
 
 // ---------------------------------------------------------------------------
 // Input validation
@@ -93,7 +96,8 @@ export async function POST(req: NextRequest): Promise<Response> {
 
   // Check required env vars early — surface the error clearly
   const missingEnvVars: string[] = [];
-  if (!process.env.NVIDIA_NIM_API_KEY) missingEnvVars.push("NVIDIA_NIM_API_KEY");
+  if (!process.env.GROQ_API_KEYS && !process.env.GROQ_API_KEY)
+    missingEnvVars.push("GROQ_API_KEYS");
   if (!process.env.TAVILY_API_KEY) missingEnvVars.push("TAVILY_API_KEY");
 
   if (missingEnvVars.length > 0) {
