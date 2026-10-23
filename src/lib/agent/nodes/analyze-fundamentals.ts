@@ -3,9 +3,8 @@
  *
  * LLM node: analyzes the company's financial fundamentals.
  *
- * Uses ChatOpenAI pointed at NVIDIA NIM with .withStructuredOutput(FundamentalsSchema).
- * The method: "jsonSchema" option is required for NIM compatibility — some NIM
- * endpoints do not support the "strict" tool-calling format.
+ * Calls Groq via invokeStructuredLLM(prompt, FundamentalsSchema); the reply is
+ * validated against the schema before it reaches state.
  *
  * Critically: the prompt injects the actual financial data from state, and the
  * FundamentalsSchema's .describe() annotations act as field-level instructions.

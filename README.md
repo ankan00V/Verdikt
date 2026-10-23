@@ -17,7 +17,7 @@ Unlike a single-prompt "ask the LLM" approach, Verdikt implements a **real multi
 - **Real financial data** from Yahoo Finance (income statements, key metrics, ratios, company profiles)
 - **Live news analysis** via Tavily (recent headlines, sentiment, controversies)
 - **Competitive landscape research** via Tavily web search (moat assessment, market position, key competitors)
-- **Structured LLM analysis** using NVIDIA NIM (Llama 3.1 70B) with Zod schema enforcement
+- **Structured LLM analysis** using Groq (`openai/gpt-oss-120b`, falling back to `llama-3.3-70b-versatile`) with Zod schema enforcement
 - **Real-time streaming UI** — the user watches each research stage complete live via Server-Sent Events
 - **Automatic retry with exponential backoff** — production-grade resilience against API timeouts and rate limits
 - **Persistent checkpointing via Upstash Redis** — survives Vercel's 60-second serverless timeout
@@ -44,9 +44,12 @@ npm install
 Create a `.env.local` file in the project root:
 
 ```env
-# Required — NVIDIA NIM API Keys (LLM inference)
-NVIDIA_NIM_API_KEY=your_nvidia_nim_key_here
-NVIDIA_FALLBACK_API_KEY=your_second_nvidia_nim_key_here   # Optional, for retry resilience
+# Required — Groq API key pool (LLM inference). Comma-separated; one key is fine.
+GROQ_API_KEYS=gsk_your_first_key_here,gsk_your_second_key_here
+
+# Optional — override the models (defaults shown)
+GROQ_PRIMARY_MODEL=openai/gpt-oss-120b
+GROQ_FALLBACK_MODEL=llama-3.3-70b-versatile
 
 # Required — Tavily API Key (web & news search)
 TAVILY_API_KEY=your_tavily_key_here
@@ -65,7 +68,7 @@ USE_MOCK_DATA=false
 **Where to get each key:**
 | Key | Source | Notes |
 |-----|--------|-------|
-| `NVIDIA_NIM_API_KEY` | [integrate.api.nvidia.com](https://integrate.api.nvidia.com) | Free tier available. Create account → API Keys |
+| `GROQ_API_KEYS` | [console.groq.com](https://console.groq.com/keys) | Free tier available. Verify with `node --env-file=.env.local scripts/test-keys.js` |
 | `TAVILY_API_KEY` | [tavily.com](https://tavily.com) | Free tier: 1000 searches/month |
 | `UPSTASH_REDIS_REST_URL/TOKEN` | [upstash.com](https://upstash.com) | Free tier: 10K commands/day. Only needed for Vercel deployment |
 | `YAHOO_PROXY_URL` | [webshare.io](https://webshare.io) | Free: 10 proxies. Only needed for Vercel (Yahoo blocks shared IPs) |
@@ -130,7 +133,7 @@ end
 subgraph group_services["External Services"]
   node_market_sources["Yahoo Finance<br/>market data service"]
   node_tavily["Tavily<br/>search service"]
-  node_nim["NVIDIA NIM / Llama<br/>model provider"]
+  node_nim["Groq<br/>model provider"]
 end
 
 node_landing -->|"opens research"| node_console
@@ -208,7 +211,7 @@ class node_market_sources,node_tavily,node_nim toneRose
 |-------|-----------|---------|
 | **Framework** | Next.js 16 (App Router) | Full-stack React with API routes |
 | **Agent Pipeline** | LangGraph.js (StateGraph) | DAG execution, parallel fan-out/fan-in, checkpointing |
-| **LLM** | NVIDIA NIM — `meta/llama-3.1-70b-instruct` | Structured output via `.withStructuredOutput()` + Zod schemas |
+| **LLM** | Groq — `openai/gpt-oss-120b` + `llama-3.3-70b-versatile` | OpenAI-compatible chat completions in JSON mode, validated against Zod schemas |
 | **Financial Data** | `yahoo-finance2` | Income statements, key metrics, ratios, company profiles |
 | **News & Web Search** | Tavily API | Recent news, competitive landscape research |
 | **Schema Validation** | Zod v3 | Enforced structured output from all LLM nodes |
@@ -220,14 +223,14 @@ class node_market_sources,node_tavily,node_nim toneRose
 ### Key Implementation Details
 
 **1. Structured Output via Zod Schemas**
-Every LLM analysis node uses `ChatOpenAI.withStructuredOutput(ZodSchema)` — not regex parsing of free text. The LLM is constrained to output valid JSON matching the exact schema. For example, `FundamentalsSchema` enforces `overallScore` as `enum("strong", "adequate", "weak", "unavailable")` — the LLM cannot return anything else.
+Every LLM analysis node calls `invokeStructuredLLM(prompt, ZodSchema)` — not regex parsing of free text. The schema is sent to Groq as JSON Schema, the reply comes back in JSON mode, and it is validated against the Zod schema; a reply that does not match is retried on the other model. For example, `FundamentalsSchema` enforces `overallScore` as `enum("strong", "adequate", "weak", "unavailable")` — the LLM cannot return anything else.
 
 **2. Production-Grade Retry Logic**
 The `invokeStructuredLLM` function implements:
-- **45-second timeout** per structured attempt (25s for the small string calls), sized against Vercel's 60s function limit
-- **3 attempts** with exponential backoff (2s, 4s delays)
-- **API key rotation** — alternates between primary and fallback NVIDIA keys on each attempt
-- **Smart retry classification** — retries 429s, connection resets and auth failures, but **never retries a timeout**: three attempts at a 45s timeout is 135s inside a 60s budget, which kills the whole function instead of one node
+- **20-second timeout** per structured attempt (15s for the small string calls)
+- **2–4 attempts** — one per key in `GROQ_API_KEYS`, at least two so the fallback model is always tried
+- **Key and model rotation** — each attempt moves to the next key and alternates between the primary and fallback model
+- **Smart retry classification** — retries 429s, auth failures and schema mismatches, but **never retries a timeout**, which would spend the function's wall-clock budget twice
 
 **3. Checkpoint Persistence (Vercel Timeout Survival)**
 Vercel serverless functions have a 60-second execution limit. The full Verdikt pipeline takes ~90-120 seconds. To handle this:
@@ -251,7 +254,7 @@ The research console is a 3-pane layout:
 | Decision | Rationale |
 |----------|-----------|
 | **LangGraph.js over a single-prompt approach** | A single LLM prompt could produce a verdict in one call. But the assignment asks for visible reasoning. A multi-node graph makes each stage independently inspectable — fundamentals analysis is a separate artifact from sentiment analysis. Failures are surfaced explicitly, not absorbed into a black box. |
-| **NVIDIA NIM (Llama 3.1 70B) over OpenAI/Claude** | Deliberate choice to avoid the most common submission approach. NIM provides OpenAI-compatible endpoints, supports native structured output via tool-calling, and is free-tier accessible. |
+| **Groq over OpenAI/Claude** | Groq provides an OpenAI-compatible endpoint with sub-second inference and a free tier. Originally built on NVIDIA NIM; swapped to Groq when NIM became unreliable. |
 | **Yahoo Finance over FMP** | FMP deprecated free access to all fundamental endpoints (income statements, ratios, key metrics) in August 2025 — after the original assignment was written. Rather than fabricating data, I pivoted to `yahoo-finance2` (free, no API key needed, same data). The graph architecture is unchanged. |
 | **Tavily over SerpAPI** | Tavily is purpose-built for LLM agents — returns clean structured content, handles recency filtering natively for news, and integrates directly with LangChain. |
 | **Custom UpstashSaver over LangSmith Cloud** | Vercel's 60s timeout kills the pipeline mid-execution. Rather than using a paid LangSmith deployment, I built a custom `UpstashSaver` that extends `MemorySaver`, serializes checkpoint state with zlib compression, and persists to free-tier Upstash Redis. |

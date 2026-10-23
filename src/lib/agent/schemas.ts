@@ -2,8 +2,8 @@
  * agent/schemas.ts
  *
  * Zod schemas for all LLM structured-output nodes.
- * These are passed to .withStructuredOutput(schema, { method: "json_schema" })
- * on the ChatOpenAI instance pointed at NVIDIA NIM.
+ * These are passed to invokeStructuredLLM (llm.ts), which sends them to Groq as
+ * JSON Schema and validates the reply against them.
  *
  * Design principle: each schema is self-documenting via .describe() so the LLM
  * understands exactly what each field means — no separate system-prompt workarounds.
