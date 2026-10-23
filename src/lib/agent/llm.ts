@@ -44,7 +44,7 @@ const GROQ_BASE_URL = (
 // Two different model families, so the fallback is a real second opinion.
 const PRIMARY_MODEL = process.env.GROQ_PRIMARY_MODEL ?? "openai/gpt-oss-120b";
 const FALLBACK_MODEL =
-  process.env.GROQ_FALLBACK_MODEL ?? "llama-3.3-70b-versatile";
+  process.env.GROQ_FALLBACK_MODEL ?? "qwen/qwen3.8-27b";
 
 // Reasoning models (gpt-oss, Qwen in thinking mode) spend tokens on internal
 // reasoning BEFORE emitting any content. A tight budget tuned for a

@@ -17,7 +17,7 @@ Unlike a single-prompt "ask the LLM" approach, Verdikt implements a **real multi
 - **Real financial data** from Yahoo Finance (income statements, key metrics, ratios, company profiles)
 - **Live news analysis** via Tavily (recent headlines, sentiment, controversies)
 - **Competitive landscape research** via Tavily web search (moat assessment, market position, key competitors)
-- **Structured LLM analysis** using Groq (`openai/gpt-oss-120b`, falling back to `llama-3.3-70b-versatile`) with Zod schema enforcement
+- **Structured LLM analysis** using Groq (`openai/gpt-oss-120b`, falling back to `qwen/qwen3.8-27b`) with Zod schema enforcement
 - **Real-time streaming UI** — the user watches each research stage complete live via Server-Sent Events
 - **Automatic retry with exponential backoff** — production-grade resilience against API timeouts and rate limits
 - **Persistent checkpointing via Upstash Redis** — survives Vercel's 60-second serverless timeout
@@ -49,7 +49,7 @@ GROQ_API_KEYS=gsk_your_first_key_here,gsk_your_second_key_here
 
 # Optional — override the models (defaults shown)
 GROQ_PRIMARY_MODEL=openai/gpt-oss-120b
-GROQ_FALLBACK_MODEL=llama-3.3-70b-versatile
+GROQ_FALLBACK_MODEL=qwen/qwen3.8-27b
 
 # Required — Tavily API Key (web & news search)
 TAVILY_API_KEY=your_tavily_key_here
@@ -211,7 +211,7 @@ class node_market_sources,node_tavily,node_nim toneRose
 |-------|-----------|---------|
 | **Framework** | Next.js 16 (App Router) | Full-stack React with API routes |
 | **Agent Pipeline** | LangGraph.js (StateGraph) | DAG execution, parallel fan-out/fan-in, checkpointing |
-| **LLM** | Groq — `openai/gpt-oss-120b` + `llama-3.3-70b-versatile` | OpenAI-compatible chat completions in JSON mode, validated against Zod schemas |
+| **LLM** | Groq — `openai/gpt-oss-120b` + `qwen/qwen3.8-27b` | OpenAI-compatible chat completions in JSON mode, validated against Zod schemas |
 | **Financial Data** | `yahoo-finance2` | Income statements, key metrics, ratios, company profiles |
 | **News & Web Search** | Tavily API | Recent news, competitive landscape research |
 | **Schema Validation** | Zod v3 | Enforced structured output from all LLM nodes |

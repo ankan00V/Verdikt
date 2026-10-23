@@ -3,7 +3,7 @@
 const BASE_URL = (process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1").replace(/\/+$/, "");
 const MODELS = [
   process.env.GROQ_PRIMARY_MODEL || "openai/gpt-oss-120b",
-  process.env.GROQ_FALLBACK_MODEL || "llama-3.3-70b-versatile",
+  process.env.GROQ_FALLBACK_MODEL || "qwen/qwen3.8-27b",
 ];
 
 async function testKey(apiKey, name) {
