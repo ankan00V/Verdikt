@@ -108,7 +108,7 @@ export interface CompetitiveOutput {
 
 export interface DecisionOutput {
   verdict: "INVEST" | "PASS";
-  confidence: number; // 0-100
+  confidence: number; // 0-1 (the model answers 0-100; synthesize_decision normalises)
   oneLineRationale: string;
   fundamentalsSummary: string;
   sentimentSummary: string;

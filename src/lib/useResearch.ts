@@ -150,7 +150,7 @@ export function useResearch() {
                     const d = outputData.decision;
                     synthVerdict = {
                       decision: d.verdict as any,
-                      confidence: d.confidence / 100,
+                      confidence: d.confidence, // already 0-1, normalised in synthesize_decision
                       reasoning: d.oneLineRationale,
                       keyFactors: [
                         ...(d.keyStrengths || []).map((s: string) => `Strength: ${s}`),
