@@ -49,7 +49,7 @@ export async function analyzeCompetitiveNode(
 ): Promise<Partial<AgentStateType>> {
 
 
-  // Stagger request slightly to avoid simultaneous NIM hits (retry logic in llm.ts handles 429s)
+  // Stagger request slightly to avoid simultaneous Groq hits (retry logic in llm.ts handles 429s)
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
   const webContext = formatWebResearchContext(state);

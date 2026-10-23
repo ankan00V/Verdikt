@@ -220,7 +220,7 @@ export async function fetchFinancialsNode(
   }
 
   if (!financialsAvailable) {
-    console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
+    console.warn(`[fetch_financials] Yahoo Finance failed for ${ticker}. Using LLM fallback.`);
     try {
       const { invokeStructuredLLM } = await import("../llm");
       const prompt = `Provide the latest financial data for ${ticker}. 

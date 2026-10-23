@@ -72,7 +72,7 @@ export async function fetchWebResearchNode(
     return { webResearchResults: filteredResults };
   } catch (err) {
     console.error("[fetch_web_research] Error:", err);
-    console.warn(`[fetch_web_research] Tavily failed for ${companyName}. Using LLM fallback via meta/llama-3.1-70b-instruct.`);
+    console.warn(`[fetch_web_research] Tavily failed for ${companyName}. Using LLM fallback.`);
     try {
       await new Promise(resolve => setTimeout(resolve, 4000));
       const { invokeStringLLM } = await import("../llm");
