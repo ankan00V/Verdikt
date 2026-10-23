@@ -138,12 +138,12 @@ function FindingContent({ finding }: { finding: FindingEntry }) {
       }
 
       case "synthesize_decision": {
-        const dec = output.finalDecision as any;
+        const dec = output.decision as any;
         if (!dec) return <p className="text-[11px] text-white/50 leading-[1.5] mt-1">{finding.summary}</p>;
         const color = dec.verdict === "INVEST" ? "text-emerald-400/80" : "text-red-400/80";
         return (
           <p className="text-[11px] text-white/60 leading-[1.5] mt-2 font-mono">
-            Verdict synthesized → <span className={color}>{dec.verdict}</span> ({Math.round((dec.confidenceScore || 0) * 100)}% confidence)
+            Verdict synthesized → <span className={color}>{dec.verdict}</span> ({Math.round((dec.confidence || 0) * 100)}% confidence)
           </p>
         );
       }
